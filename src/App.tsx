@@ -4,16 +4,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
-import Dashboard from "./pages/Dashboard";
+import UnifiedDashboard from "./pages/UnifiedDashboard";
 import Auth from "./pages/Auth";
 import Bootstrap from "./pages/Bootstrap";
 import Leads from "./pages/Leads";
 import LeadDetail from "./pages/LeadDetail";
-import Builders from "./pages/Builders";
-import Projects from "./pages/Projects";
+import Supply from "./pages/Supply";
 import Activities from "./pages/Activities";
 import Matchings from "./pages/Matchings";
-import SupplyDashboard from "./pages/SupplyDashboard";
 import Users from "./pages/Users";
 import NotFound from "./pages/NotFound";
 
@@ -29,12 +27,10 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/bootstrap" element={<Bootstrap />} />
           <Route element={<Layout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/supply" element={<SupplyDashboard />} />
+            <Route path="/" element={<UnifiedDashboard />} />
             <Route path="/leads" element={<Leads />} />
             <Route path="/leads/:id" element={<LeadDetail />} />
-            <Route path="/builders" element={<Builders />} />
-            <Route path="/projects" element={<Projects />} />
+            <Route path="/supply" element={<Supply />} />
             <Route path="/activities" element={<Activities />} />
             <Route path="/matchings" element={<Matchings />} />
             <Route path="/users" element={<Users />} />

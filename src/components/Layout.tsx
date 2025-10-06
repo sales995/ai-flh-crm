@@ -32,11 +32,8 @@ import { NavLink } from "react-router-dom";
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Supply", url: "/supply", icon: Package },
   { title: "Leads", url: "/leads", icon: Users },
-  { title: "Builders", url: "/builders", icon: Building },
-  { title: "Projects", url: "/projects", icon: Building2 },
-  { title: "Activities", url: "/activities", icon: Activity },
+  { title: "Supply", url: "/supply", icon: Package },
   { title: "Matchings", url: "/matchings", icon: Sparkles },
 ];
 
