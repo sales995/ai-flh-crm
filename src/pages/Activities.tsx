@@ -1,10 +1,35 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, User } from "lucide-react";
+import { Calendar, User, Clock } from "lucide-react";
 
 export default function Activities() {
+  const queryClient = useQueryClient();
+
+  // Realtime subscription for activities
+  useEffect(() => {
+    const channel = supabase
+      .channel("activities-page-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "activities",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["all-activities"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   const { data: activities, isLoading } = useQuery({
     queryKey: ["all-activities"],
     queryFn: async () => {
@@ -59,6 +84,12 @@ export default function Activities() {
                       {(activity.leads as any)?.name}
                     </span>
                   </div>
+                  {activity.duration && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span>{activity.duration} minutes</span>
+                    </div>
+                  )}
                   {activity.notes && (
                     <p className="text-sm text-muted-foreground">{activity.notes}</p>
                   )}

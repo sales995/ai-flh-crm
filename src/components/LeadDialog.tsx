@@ -7,17 +7,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { z } from "zod";
 
 const leadSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(100),
-  email: z.string().email("Invalid email").optional().or(z.literal("")),
-  phone: z.string().min(10, "Phone must be at least 10 characters").max(20),
+  email: z.string().email("Invalid email").max(255).optional().or(z.literal("")),
+  phone: z.string().regex(/^[+\d\s()-]+$/, "Invalid phone format").min(10).max(20),
   budget_min: z.number().min(0).optional(),
   budget_max: z.number().min(0).optional(),
   location: z.string().max(200).optional(),
-  notes: z.string().max(1000).optional(),
+  notes: z.string().max(2000).optional(),
+  source: z.string().max(100).optional(),
+  campaign: z.string().max(100).optional(),
+  next_followup_date: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  consent: z.boolean(),
+}).refine((data) => {
+  if (data.budget_min && data.budget_max) {
+    return data.budget_min <= data.budget_max;
+  }
+  return true;
+}, {
+  message: "Min budget must be less than or equal to max budget",
+  path: ["budget_max"],
 });
 
 interface LeadDialogProps {
@@ -39,6 +53,11 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
     location: lead?.location || "",
     project_type: lead?.project_type || "",
     notes: lead?.notes || "",
+    source: lead?.source || "",
+    campaign: lead?.campaign || "",
+    next_followup_date: lead?.next_followup_date || "",
+    tags: lead?.tags?.join(", ") || "",
+    consent: lead?.consent || false,
   });
 
   const createLead = useMutation({
@@ -55,6 +74,10 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-leads"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["leads-by-source"] });
+      queryClient.invalidateQueries({ queryKey: ["leads-by-status"] });
       toast.success("Lead created successfully");
       onOpenChange(false);
       resetForm();
@@ -75,6 +98,8 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["lead-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-leads"] });
       toast.success("Lead updated successfully");
       onOpenChange(false);
     },
@@ -94,6 +119,11 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
       location: "",
       project_type: "",
       notes: "",
+      source: "",
+      campaign: "",
+      next_followup_date: "",
+      tags: "",
+      consent: false,
     });
   };
 
@@ -101,6 +131,11 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
     e.preventDefault();
 
     try {
+      // Parse tags
+      const tagsArray = formData.tags
+        ? formData.tags.split(",").map(t => t.trim()).filter(Boolean)
+        : [];
+
       const validated = leadSchema.parse({
         name: formData.name,
         email: formData.email || undefined,
@@ -109,6 +144,11 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
         budget_max: formData.budget_max ? parseFloat(formData.budget_max) : undefined,
         location: formData.location || undefined,
         notes: formData.notes || undefined,
+        source: formData.source || undefined,
+        campaign: formData.campaign || undefined,
+        next_followup_date: formData.next_followup_date || undefined,
+        tags: tagsArray.length > 0 ? tagsArray : undefined,
+        consent: formData.consent,
       });
 
       const submitData = {
@@ -143,6 +183,7 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Full name"
                 required
               />
             </div>
@@ -152,6 +193,7 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
                 id="phone"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="+1 234 567 8900"
                 required
               />
             </div>
@@ -164,6 +206,7 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="email@example.com"
             />
           </div>
 
@@ -174,7 +217,7 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover z-50">
                   <SelectItem value="new">New</SelectItem>
                   <SelectItem value="contacted">Contacted</SelectItem>
                   <SelectItem value="qualified">Qualified</SelectItem>
@@ -191,10 +234,10 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover z-50">
                   <SelectItem value="apartment">Apartment</SelectItem>
-                  <SelectItem value="villa">Villa</SelectItem>
-                  <SelectItem value="townhouse">Townhouse</SelectItem>
+                  <SelectItem value="house">House</SelectItem>
+                  <SelectItem value="condo">Condo</SelectItem>
                   <SelectItem value="commercial">Commercial</SelectItem>
                   <SelectItem value="land">Land</SelectItem>
                 </SelectContent>
@@ -204,21 +247,23 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="budget_min">Budget Min</Label>
+              <Label htmlFor="budget_min">Min Budget</Label>
               <Input
                 id="budget_min"
                 type="number"
                 value={formData.budget_min}
                 onChange={(e) => setFormData({ ...formData, budget_min: e.target.value })}
+                placeholder="0"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="budget_max">Budget Max</Label>
+              <Label htmlFor="budget_max">Max Budget</Label>
               <Input
                 id="budget_max"
                 type="number"
                 value={formData.budget_max}
                 onChange={(e) => setFormData({ ...formData, budget_max: e.target.value })}
+                placeholder="0"
               />
             </div>
           </div>
@@ -229,6 +274,55 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
               id="location"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              placeholder="City or region"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="source">Source</Label>
+              <Select value={formData.source} onValueChange={(value) => setFormData({ ...formData, source: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select source" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  <SelectItem value="website">Website</SelectItem>
+                  <SelectItem value="referral">Referral</SelectItem>
+                  <SelectItem value="cold_call">Cold Call</SelectItem>
+                  <SelectItem value="social_media">Social Media</SelectItem>
+                  <SelectItem value="event">Event</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="campaign">Campaign</Label>
+              <Input
+                id="campaign"
+                value={formData.campaign}
+                onChange={(e) => setFormData({ ...formData, campaign: e.target.value })}
+                placeholder="Campaign name"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="next_followup_date">Next Follow-up Date</Label>
+            <Input
+              id="next_followup_date"
+              type="date"
+              value={formData.next_followup_date}
+              onChange={(e) => setFormData({ ...formData, next_followup_date: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tags">Tags (comma-separated)</Label>
+            <Input
+              id="tags"
+              value={formData.tags}
+              onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+              placeholder="e.g., urgent, high-value, investor"
             />
           </div>
 
@@ -239,7 +333,19 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={3}
+              placeholder="Additional notes..."
             />
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="consent"
+              checked={formData.consent}
+              onCheckedChange={(checked) => setFormData({ ...formData, consent: checked as boolean })}
+            />
+            <Label htmlFor="consent" className="font-normal cursor-pointer">
+              Lead has given consent for communication *
+            </Label>
           </div>
 
           <div className="flex justify-end gap-2">

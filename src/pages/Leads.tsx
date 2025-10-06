@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,28 @@ export default function Leads() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [view, setView] = useState<"list" | "kanban">("kanban");
   const queryClient = useQueryClient();
+
+  // Realtime subscription for leads
+  useEffect(() => {
+    const channel = supabase
+      .channel("leads-page-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "leads",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["leads"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const { data: leads, isLoading } = useQuery({
     queryKey: ["leads"],

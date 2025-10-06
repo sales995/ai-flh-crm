@@ -1,10 +1,87 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Building2, Activity, Sparkles, TrendingUp, CheckCircle2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 
 export default function Dashboard() {
+  const queryClient = useQueryClient();
+
+  // Realtime subscriptions for live updates
+  useEffect(() => {
+    const leadsChannel = supabase
+      .channel("leads-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "leads",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+          queryClient.invalidateQueries({ queryKey: ["recent-leads"] });
+          queryClient.invalidateQueries({ queryKey: ["leads-by-source"] });
+          queryClient.invalidateQueries({ queryKey: ["leads-by-status"] });
+          queryClient.invalidateQueries({ queryKey: ["top-campaigns"] });
+        }
+      )
+      .subscribe();
+
+    const projectsChannel = supabase
+      .channel("projects-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "projects",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+        }
+      )
+      .subscribe();
+
+    const activitiesChannel = supabase
+      .channel("activities-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "activities",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+        }
+      )
+      .subscribe();
+
+    const matchingsChannel = supabase
+      .channel("matchings-changes-dashboard")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "matchings",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(leadsChannel);
+      supabase.removeChannel(projectsChannel);
+      supabase.removeChannel(activitiesChannel);
+      supabase.removeChannel(matchingsChannel);
+    };
+  }, [queryClient]);
+
   const { data: stats } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {

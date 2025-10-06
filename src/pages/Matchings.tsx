@@ -1,26 +1,87 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Sparkles, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Matchings() {
   const queryClient = useQueryClient();
   const [generating, setGenerating] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // Check user role
+  useEffect(() => {
+    const checkUserRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .single();
+
+      setUserRole(data?.role || "agent");
+    };
+
+    checkUserRole();
+  }, []);
 
   const { data: matchings, isLoading } = useQuery({
     queryKey: ["all-matchings"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("matchings")
-        .select("*, leads(name, location, project_type), projects(name, location, price, project_type)")
+        .select("*, leads(name, location, project_type, tags), projects(name, location, price, price_min, price_max, project_type, tags)")
         .order("score", { ascending: false });
       
       if (error) throw error;
       return data;
+    },
+  });
+
+  // Realtime subscription for matchings
+  useEffect(() => {
+    const channel = supabase
+      .channel("matchings-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "matchings",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["all-matchings"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  const updateApproval = useMutation({
+    mutationFn: async ({ id, approved }: { id: string; approved: boolean }) => {
+      const { error } = await supabase
+        .from("matchings")
+        .update({ approved })
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-matchings"] });
+      toast.success("Matching approval updated");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update approval");
     },
   });
 
@@ -32,6 +93,7 @@ export default function Matchings() {
       if (error) throw error;
       
       queryClient.invalidateQueries({ queryKey: ["all-matchings"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Matchings generated successfully");
     } catch (error: any) {
       toast.error(error.message || "Failed to generate matchings");
@@ -39,6 +101,8 @@ export default function Matchings() {
       setGenerating(false);
     }
   };
+
+  const canApprove = userRole === "admin" || userRole === "manager";
 
   return (
     <div className="p-6 space-y-6">
@@ -69,7 +133,7 @@ export default function Matchings() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {matchings?.map((matching) => (
-            <Card key={matching.id} className="hover:shadow-lg transition-shadow">
+            <Card key={matching.id} className="hover:shadow-lg transition-shadow border-l-4 border-l-primary">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <CardTitle className="text-lg">
@@ -123,8 +187,32 @@ export default function Matchings() {
 
                 <div className="pt-2 border-t">
                   <p className="text-sm text-muted-foreground">
-                    Price: ${(matching.projects as any)?.price.toLocaleString()}
+                    Price: ${(matching.projects as any)?.price?.toLocaleString() || 
+                      `${(matching.projects as any)?.price_min?.toLocaleString()} - ${(matching.projects as any)?.price_max?.toLocaleString()}`}
                   </p>
+                </div>
+
+                {/* Approval Toggle */}
+                <div className="pt-3 border-t flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    {matching.approved ? (
+                      <CheckCircle2 className="h-4 w-4 text-success" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <Label className="text-sm">
+                      {matching.approved ? "Approved" : "Not Approved"}
+                    </Label>
+                  </div>
+                  {canApprove && (
+                    <Switch
+                      checked={matching.approved || false}
+                      onCheckedChange={(checked) =>
+                        updateApproval.mutate({ id: matching.id, approved: checked })
+                      }
+                      disabled={updateApproval.isPending}
+                    />
+                  )}
                 </div>
               </CardContent>
             </Card>
