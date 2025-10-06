@@ -14,6 +14,7 @@ import Activities from "./pages/Activities";
 import Matchings from "./pages/Matchings";
 import SupplyDashboard from "./pages/SupplyDashboard";
 import Users from "./pages/Users";
+import SetupAdmin from "./pages/SetupAdmin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/setup" element={<SetupAdmin />} />
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/supply" element={<SupplyDashboard />} />
