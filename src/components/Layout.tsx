@@ -11,7 +11,8 @@ import {
   LogOut,
   Menu,
   Building,
-  Package
+  Package,
+  UserCog
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -44,6 +45,7 @@ export function Layout() {
   const location = useLocation();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -53,6 +55,18 @@ export function Layout() {
         
         if (!session && location.pathname !== "/auth") {
           navigate("/auth");
+        } else if (session?.user) {
+          // Fetch user role
+          setTimeout(() => {
+            supabase
+              .from("user_roles")
+              .select("role")
+              .eq("user_id", session.user.id)
+              .single()
+              .then(({ data }) => {
+                setUserRole(data?.role || null);
+              });
+          }, 0);
         }
       }
     );
@@ -63,6 +77,16 @@ export function Layout() {
       
       if (!session && location.pathname !== "/auth") {
         navigate("/auth");
+      } else if (session?.user) {
+        // Fetch user role
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", session.user.id)
+          .single()
+          .then(({ data }) => {
+            setUserRole(data?.role || null);
+          });
       }
     });
 
@@ -113,6 +137,16 @@ export function Layout() {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
+                  {userRole === "admin" && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild>
+                        <NavLink to="/users" className={getNavClassName}>
+                          <UserCog className="h-4 w-4" />
+                          <span>Users</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

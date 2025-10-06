@@ -13,6 +13,7 @@ import Projects from "./pages/Projects";
 import Activities from "./pages/Activities";
 import Matchings from "./pages/Matchings";
 import SupplyDashboard from "./pages/SupplyDashboard";
+import Users from "./pages/Users";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/projects" element={<Projects />} />
             <Route path="/activities" element={<Activities />} />
             <Route path="/matchings" element={<Matchings />} />
+            <Route path="/users" element={<Users />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
