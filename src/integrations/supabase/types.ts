@@ -281,24 +281,33 @@ export type Database = {
           email: string
           full_name: string | null
           id: string
+          last_login_at: string | null
           phone: string | null
+          status: Database["public"]["Enums"]["user_status"]
           updated_at: string
+          username: string | null
         }
         Insert: {
           created_at?: string
           email: string
           full_name?: string | null
           id: string
+          last_login_at?: string | null
           phone?: string | null
+          status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
+          username?: string | null
         }
         Update: {
           created_at?: string
           email?: string
           full_name?: string | null
           id?: string
+          last_login_at?: string | null
           phone?: string | null
+          status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -535,6 +544,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_user_active: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       log_audit: {
         Args: {
           _action: string
@@ -562,6 +575,7 @@ export type Database = {
         | "converted"
         | "lost"
       project_type: "apartment" | "villa" | "townhouse" | "commercial" | "land"
+      user_status: "active" | "inactive"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -707,6 +721,7 @@ export const Constants = {
         "lost",
       ],
       project_type: ["apartment", "villa", "townhouse", "commercial", "land"],
+      user_status: ["active", "inactive"],
     },
   },
 } as const
