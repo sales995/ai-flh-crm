@@ -12,9 +12,21 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Check authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error('Missing authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     console.log("Starting matching generation...");
 
@@ -85,6 +97,14 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Log audit event
+    await supabase.rpc('log_audit', {
+      _action: 'matchings_generated',
+      _table_name: 'matchings',
+      _record_id: null,
+      _details: { count: matchings.length }
+    });
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -109,39 +129,52 @@ Deno.serve(async (req) => {
 function calculateMatchScore(lead: any, project: any): number {
   let score = 0;
 
-  // Location match (40 points)
+  // Location match - 30 points
   if (lead.location && project.location) {
     if (
       lead.location.toLowerCase().includes(project.location.toLowerCase()) ||
       project.location.toLowerCase().includes(lead.location.toLowerCase())
     ) {
-      score += 40;
+      score += 30;
     }
   }
 
-  // Project type match (30 points)
+  // Project type match - 30 points
   if (lead.project_type && lead.project_type === project.project_type) {
     score += 30;
   }
 
-  // Budget match (30 points)
-  if (lead.budget_min || lead.budget_max) {
-    const leadBudgetMin = lead.budget_min || 0;
-    const leadBudgetMax = lead.budget_max || Infinity;
-    const projectPrice = project.price;
+  // Budget match - 40 points (within price range)
+  if (lead.budget_min && lead.budget_max) {
+    const leadMin = lead.budget_min;
+    const leadMax = lead.budget_max;
+    
+    if (project.price_min && project.price_max) {
+      // New: price range matching
+      const projMin = project.price_min;
+      const projMax = project.price_max;
+      
+      // Check if ranges overlap
+      if (leadMin <= projMax && leadMax >= projMin) {
+        score += 40;
+      }
+    } else if (project.price) {
+      // Legacy: single price field
+      if (project.price >= leadMin && project.price <= leadMax) {
+        score += 40;
+      } else if (Math.abs(project.price - leadMax) / leadMax < 0.2) {
+        score += 25;
+      }
+    }
+  }
 
-    if (projectPrice >= leadBudgetMin && projectPrice <= leadBudgetMax) {
-      score += 30;
-    } else if (
-      projectPrice < leadBudgetMin &&
-      projectPrice >= leadBudgetMin * 0.8
-    ) {
-      score += 15;
-    } else if (
-      projectPrice > leadBudgetMax &&
-      projectPrice <= leadBudgetMax * 1.2
-    ) {
-      score += 15;
+  // Tags match - 10 points
+  if (lead.tags && project.tags && Array.isArray(lead.tags) && Array.isArray(project.tags)) {
+    const intersection = lead.tags.filter((tag: string) => 
+      project.tags.includes(tag)
+    );
+    if (intersection.length > 0) {
+      score += 10;
     }
   }
 
@@ -164,23 +197,36 @@ function getMatchReasons(lead: any, project: any): string[] {
     reasons.push("Project type match");
   }
 
-  if (lead.budget_min || lead.budget_max) {
-    const leadBudgetMin = lead.budget_min || 0;
-    const leadBudgetMax = lead.budget_max || Infinity;
-    const projectPrice = project.price;
+  if (lead.budget_min && lead.budget_max) {
+    const leadMin = lead.budget_min;
+    const leadMax = lead.budget_max;
+    
+    if (project.price_min && project.price_max) {
+      const projMin = project.price_min;
+      const projMax = project.price_max;
+      
+      if (leadMin <= projMax && leadMax >= projMin) {
+        reasons.push("Budget ranges overlap");
+      }
+    } else if (project.price) {
+      if (project.price >= leadMin && project.price <= leadMax) {
+        reasons.push("Within budget");
+      } else if (project.price < leadMin) {
+        reasons.push("Below budget");
+      } else if (Math.abs(project.price - leadMax) / leadMax < 0.2) {
+        reasons.push("Close to budget");
+      } else {
+        reasons.push("Slightly above budget");
+      }
+    }
+  }
 
-    if (projectPrice >= leadBudgetMin && projectPrice <= leadBudgetMax) {
-      reasons.push("Within budget");
-    } else if (
-      projectPrice < leadBudgetMin &&
-      projectPrice >= leadBudgetMin * 0.8
-    ) {
-      reasons.push("Close to budget");
-    } else if (
-      projectPrice > leadBudgetMax &&
-      projectPrice <= leadBudgetMax * 1.2
-    ) {
-      reasons.push("Slightly above budget");
+  if (lead.tags && project.tags && Array.isArray(lead.tags) && Array.isArray(project.tags)) {
+    const intersection = lead.tags.filter((tag: string) => 
+      project.tags.includes(tag)
+    );
+    if (intersection.length > 0) {
+      reasons.push(`Matching tags: ${intersection.join(", ")}`);
     }
   }
 

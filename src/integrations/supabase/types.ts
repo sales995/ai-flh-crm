@@ -20,6 +20,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           created_by: string
+          duration: number | null
           id: string
           lead_id: string
           notes: string | null
@@ -32,6 +33,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by: string
+          duration?: number | null
           id?: string
           lead_id: string
           notes?: string | null
@@ -44,6 +46,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by?: string
+          duration?: number | null
           id?: string
           lead_id?: string
           notes?: string | null
@@ -68,11 +71,43 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          record_id: string | null
+          table_name: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          record_id?: string | null
+          table_name: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          record_id?: string | null
+          table_name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           assigned_to: string | null
           budget_max: number | null
           budget_min: number | null
+          campaign: string | null
+          consent: boolean | null
           created_at: string
           created_by: string
           email: string | null
@@ -80,16 +115,21 @@ export type Database = {
           last_contacted_at: string | null
           location: string | null
           name: string
+          next_followup_date: string | null
           notes: string | null
           phone: string
           project_type: Database["public"]["Enums"]["project_type"] | null
+          source: string | null
           status: Database["public"]["Enums"]["lead_status"]
+          tags: string[] | null
           updated_at: string
         }
         Insert: {
           assigned_to?: string | null
           budget_max?: number | null
           budget_min?: number | null
+          campaign?: string | null
+          consent?: boolean | null
           created_at?: string
           created_by: string
           email?: string | null
@@ -97,16 +137,21 @@ export type Database = {
           last_contacted_at?: string | null
           location?: string | null
           name: string
+          next_followup_date?: string | null
           notes?: string | null
           phone: string
           project_type?: Database["public"]["Enums"]["project_type"] | null
+          source?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
+          tags?: string[] | null
           updated_at?: string
         }
         Update: {
           assigned_to?: string | null
           budget_max?: number | null
           budget_min?: number | null
+          campaign?: string | null
+          consent?: boolean | null
           created_at?: string
           created_by?: string
           email?: string | null
@@ -114,10 +159,13 @@ export type Database = {
           last_contacted_at?: string | null
           location?: string | null
           name?: string
+          next_followup_date?: string | null
           notes?: string | null
           phone?: string
           project_type?: Database["public"]["Enums"]["project_type"] | null
+          source?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
+          tags?: string[] | null
           updated_at?: string
         }
         Relationships: [
@@ -139,6 +187,7 @@ export type Database = {
       }
       matchings: {
         Row: {
+          approved: boolean | null
           created_at: string
           id: string
           lead_id: string
@@ -147,6 +196,7 @@ export type Database = {
           score: number
         }
         Insert: {
+          approved?: boolean | null
           created_at?: string
           id?: string
           lead_id: string
@@ -155,6 +205,7 @@ export type Database = {
           score: number
         }
         Update: {
+          approved?: boolean | null
           created_at?: string
           id?: string
           lead_id?: string
@@ -208,6 +259,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          availability_date: string | null
           bathrooms: number | null
           bedrooms: number | null
           created_at: string
@@ -218,11 +270,15 @@ export type Database = {
           location: string
           name: string
           price: number
+          price_max: number | null
+          price_min: number | null
           project_type: Database["public"]["Enums"]["project_type"]
           size_sqft: number | null
+          tags: string[] | null
           updated_at: string
         }
         Insert: {
+          availability_date?: string | null
           bathrooms?: number | null
           bedrooms?: number | null
           created_at?: string
@@ -233,11 +289,15 @@ export type Database = {
           location: string
           name: string
           price: number
+          price_max?: number | null
+          price_min?: number | null
           project_type: Database["public"]["Enums"]["project_type"]
           size_sqft?: number | null
+          tags?: string[] | null
           updated_at?: string
         }
         Update: {
+          availability_date?: string | null
           bathrooms?: number | null
           bedrooms?: number | null
           created_at?: string
@@ -248,8 +308,11 @@ export type Database = {
           location?: string
           name?: string
           price?: number
+          price_max?: number | null
+          price_min?: number | null
           project_type?: Database["public"]["Enums"]["project_type"]
           size_sqft?: number | null
+          tags?: string[] | null
           updated_at?: string
         }
         Relationships: [
@@ -302,6 +365,15 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      log_audit: {
+        Args: {
+          _action: string
+          _details: Json
+          _record_id: string
+          _table_name: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
