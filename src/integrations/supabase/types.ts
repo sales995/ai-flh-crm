@@ -101,6 +101,51 @@ export type Database = {
         }
         Relationships: []
       }
+      builders: {
+        Row: {
+          category: string | null
+          contact_number: string | null
+          cp_spoc_name: string | null
+          created_at: string
+          created_by: string | null
+          google_map_link: string | null
+          id: string
+          latitude: number | null
+          location: string | null
+          longitude: number | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          contact_number?: string | null
+          cp_spoc_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          google_map_link?: string | null
+          id?: string
+          latitude?: number | null
+          location?: string | null
+          longitude?: number | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          contact_number?: string | null
+          cp_spoc_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          google_map_link?: string | null
+          id?: string
+          latitude?: number | null
+          location?: string | null
+          longitude?: number | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           assigned_to: string | null
@@ -262,60 +307,184 @@ export type Database = {
           availability_date: string | null
           bathrooms: number | null
           bedrooms: number | null
+          brochure_link: string | null
+          builder_id: string | null
+          builder_possession_date: string | null
+          construction_stage: string | null
           created_at: string
           created_by: string
           description: string | null
+          detailed_pricing_link: string | null
           id: string
+          inventory_1_5bhk: number | null
+          inventory_1bhk: number | null
+          inventory_1rk: number | null
+          inventory_2_5bhk: number | null
+          inventory_2bhk: number | null
+          inventory_2bhk_1t: number | null
+          inventory_3bhk: number | null
+          inventory_3bhk_2t: number | null
+          inventory_4bhk: number | null
+          inventory_5bhk: number | null
           is_active: boolean
+          launch_date: string | null
           location: string
           name: string
+          number_of_floors: number | null
+          plot_range: string | null
           price: number
           price_max: number | null
           price_min: number | null
+          price_per_sqft: number | null
+          price_range: string | null
           project_type: Database["public"]["Enums"]["project_type"]
+          rera_possession_date: string | null
           size_sqft: number | null
+          starting_price_1_5bhk: number | null
+          starting_price_1bhk: number | null
+          starting_price_1rk: number | null
+          starting_price_2_5bhk: number | null
+          starting_price_2bhk: number | null
+          starting_price_3bhk: number | null
+          starting_price_4bhk: number | null
+          starting_price_5bhk: number | null
+          starting_size_2bhk: number | null
+          starting_size_3bhk: number | null
+          starting_size_4bhk: number | null
+          starting_size_5bhk: number | null
+          structure: string | null
           tags: string[] | null
+          total_amenities: number | null
+          total_land_area: number | null
+          total_towers: number | null
+          total_units: number | null
           updated_at: string
+          villa_type: string | null
         }
         Insert: {
           availability_date?: string | null
           bathrooms?: number | null
           bedrooms?: number | null
+          brochure_link?: string | null
+          builder_id?: string | null
+          builder_possession_date?: string | null
+          construction_stage?: string | null
           created_at?: string
           created_by: string
           description?: string | null
+          detailed_pricing_link?: string | null
           id?: string
+          inventory_1_5bhk?: number | null
+          inventory_1bhk?: number | null
+          inventory_1rk?: number | null
+          inventory_2_5bhk?: number | null
+          inventory_2bhk?: number | null
+          inventory_2bhk_1t?: number | null
+          inventory_3bhk?: number | null
+          inventory_3bhk_2t?: number | null
+          inventory_4bhk?: number | null
+          inventory_5bhk?: number | null
           is_active?: boolean
+          launch_date?: string | null
           location: string
           name: string
+          number_of_floors?: number | null
+          plot_range?: string | null
           price: number
           price_max?: number | null
           price_min?: number | null
+          price_per_sqft?: number | null
+          price_range?: string | null
           project_type: Database["public"]["Enums"]["project_type"]
+          rera_possession_date?: string | null
           size_sqft?: number | null
+          starting_price_1_5bhk?: number | null
+          starting_price_1bhk?: number | null
+          starting_price_1rk?: number | null
+          starting_price_2_5bhk?: number | null
+          starting_price_2bhk?: number | null
+          starting_price_3bhk?: number | null
+          starting_price_4bhk?: number | null
+          starting_price_5bhk?: number | null
+          starting_size_2bhk?: number | null
+          starting_size_3bhk?: number | null
+          starting_size_4bhk?: number | null
+          starting_size_5bhk?: number | null
+          structure?: string | null
           tags?: string[] | null
+          total_amenities?: number | null
+          total_land_area?: number | null
+          total_towers?: number | null
+          total_units?: number | null
           updated_at?: string
+          villa_type?: string | null
         }
         Update: {
           availability_date?: string | null
           bathrooms?: number | null
           bedrooms?: number | null
+          brochure_link?: string | null
+          builder_id?: string | null
+          builder_possession_date?: string | null
+          construction_stage?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
+          detailed_pricing_link?: string | null
           id?: string
+          inventory_1_5bhk?: number | null
+          inventory_1bhk?: number | null
+          inventory_1rk?: number | null
+          inventory_2_5bhk?: number | null
+          inventory_2bhk?: number | null
+          inventory_2bhk_1t?: number | null
+          inventory_3bhk?: number | null
+          inventory_3bhk_2t?: number | null
+          inventory_4bhk?: number | null
+          inventory_5bhk?: number | null
           is_active?: boolean
+          launch_date?: string | null
           location?: string
           name?: string
+          number_of_floors?: number | null
+          plot_range?: string | null
           price?: number
           price_max?: number | null
           price_min?: number | null
+          price_per_sqft?: number | null
+          price_range?: string | null
           project_type?: Database["public"]["Enums"]["project_type"]
+          rera_possession_date?: string | null
           size_sqft?: number | null
+          starting_price_1_5bhk?: number | null
+          starting_price_1bhk?: number | null
+          starting_price_1rk?: number | null
+          starting_price_2_5bhk?: number | null
+          starting_price_2bhk?: number | null
+          starting_price_3bhk?: number | null
+          starting_price_4bhk?: number | null
+          starting_price_5bhk?: number | null
+          starting_size_2bhk?: number | null
+          starting_size_3bhk?: number | null
+          starting_size_4bhk?: number | null
+          starting_size_5bhk?: number | null
+          structure?: string | null
           tags?: string[] | null
+          total_amenities?: number | null
+          total_land_area?: number | null
+          total_towers?: number | null
+          total_units?: number | null
           updated_at?: string
+          villa_type?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "projects_builder_id_fkey"
+            columns: ["builder_id"]
+            isOneToOne: false
+            referencedRelation: "builders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "projects_created_by_fkey"
             columns: ["created_by"]

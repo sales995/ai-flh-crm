@@ -8,9 +8,11 @@ import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import Leads from "./pages/Leads";
 import LeadDetail from "./pages/LeadDetail";
+import Builders from "./pages/Builders";
 import Projects from "./pages/Projects";
 import Activities from "./pages/Activities";
 import Matchings from "./pages/Matchings";
+import SupplyDashboard from "./pages/SupplyDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,8 +27,10 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/supply" element={<SupplyDashboard />} />
             <Route path="/leads" element={<Leads />} />
             <Route path="/leads/:id" element={<LeadDetail />} />
+            <Route path="/builders" element={<Builders />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/activities" element={<Activities />} />
             <Route path="/matchings" element={<Matchings />} />

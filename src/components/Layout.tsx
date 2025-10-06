@@ -9,7 +9,9 @@ import {
   Activity, 
   Sparkles, 
   LogOut,
-  Menu
+  Menu,
+  Building,
+  Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -29,7 +31,9 @@ import { NavLink } from "react-router-dom";
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Supply", url: "/supply", icon: Package },
   { title: "Leads", url: "/leads", icon: Users },
+  { title: "Builders", url: "/builders", icon: Building },
   { title: "Projects", url: "/projects", icon: Building2 },
   { title: "Activities", url: "/activities", icon: Activity },
   { title: "Matchings", url: "/matchings", icon: Sparkles },
