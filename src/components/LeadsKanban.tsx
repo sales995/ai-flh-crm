@@ -3,12 +3,14 @@ import { Badge } from "@/components/ui/badge";
 import { Phone, Mail, MapPin, DollarSign } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+type LeadStatus = "new" | "contacted" | "qualified" | "interested" | "not_interested" | "converted" | "lost";
+
 interface LeadsKanbanProps {
   leads: any[];
-  onStatusChange: (id: string, status: string) => void;
+  onStatusChange: (id: string, status: LeadStatus) => void;
 }
 
-const statuses = [
+const statuses: Array<{ value: LeadStatus; label: string; color: string }> = [
   { value: "new", label: "New", color: "bg-blue-500" },
   { value: "contacted", label: "Contacted", color: "bg-yellow-500" },
   { value: "qualified", label: "Qualified", color: "bg-purple-500" },
