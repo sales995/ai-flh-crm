@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
+import Bootstrap from "./pages/Bootstrap";
 import Leads from "./pages/Leads";
 import LeadDetail from "./pages/LeadDetail";
 import Builders from "./pages/Builders";
@@ -14,7 +15,6 @@ import Activities from "./pages/Activities";
 import Matchings from "./pages/Matchings";
 import SupplyDashboard from "./pages/SupplyDashboard";
 import Users from "./pages/Users";
-import SetupAdmin from "./pages/SetupAdmin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,7 +27,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
-          <Route path="/setup" element={<SetupAdmin />} />
+          <Route path="/bootstrap" element={<Bootstrap />} />
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/supply" element={<SupplyDashboard />} />

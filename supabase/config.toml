@@ -6,5 +6,8 @@ verify_jwt = true
 [functions.update-user]
 verify_jwt = true
 
+[functions.bootstrap-admin]
+verify_jwt = false
+
 [functions.create-first-admin]
 verify_jwt = false
