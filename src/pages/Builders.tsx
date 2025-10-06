@@ -3,12 +3,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Building, MapPin, Phone } from "lucide-react";
+import { Plus, Building, MapPin, Phone, Upload } from "lucide-react";
 import { BuilderDialog } from "@/components/BuilderDialog";
+import { BuildersBulkUpload } from "@/components/BuildersBulkUpload";
 import { Badge } from "@/components/ui/badge";
 
 export default function Builders() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const queryClient = useQueryClient();
 
   // Realtime subscription for builders
@@ -55,10 +57,16 @@ export default function Builders() {
             Manage builder partners and developers
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Builder
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Bulk Upload
+          </Button>
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Builder
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -129,6 +137,12 @@ export default function Builders() {
       )}
 
       <BuilderDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      
+      <BuildersBulkUpload
+        open={bulkUploadOpen}
+        onOpenChange={setBulkUploadOpen}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["builders"] })}
+      />
     </div>
   );
 }

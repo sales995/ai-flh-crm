@@ -2,14 +2,16 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, List, LayoutGrid } from "lucide-react";
+import { Plus, List, LayoutGrid, Upload } from "lucide-react";
 import { LeadDialog } from "@/components/LeadDialog";
 import { LeadsTable } from "@/components/LeadsTable";
 import { LeadsKanban } from "@/components/LeadsKanban";
+import { LeadsBulkUpload } from "@/components/LeadsBulkUpload";
 import { toast } from "sonner";
 
 export default function Leads() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [view, setView] = useState<"list" | "kanban">("kanban");
   const queryClient = useQueryClient();
 
@@ -106,6 +108,10 @@ export default function Leads() {
           >
             <LayoutGrid className="h-4 w-4" />
           </Button>
+          <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Bulk Upload
+          </Button>
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Lead
@@ -130,6 +136,12 @@ export default function Leads() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         projects={projects || []}
+      />
+      
+      <LeadsBulkUpload
+        open={bulkUploadOpen}
+        onOpenChange={setBulkUploadOpen}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["leads"] })}
       />
     </div>
   );

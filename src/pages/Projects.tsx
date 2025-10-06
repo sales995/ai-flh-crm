@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { ProjectDialog } from "@/components/ProjectDialog";
 import { ProjectsTable } from "@/components/ProjectsTable";
+import { ProjectsBulkUpload } from "@/components/ProjectsBulkUpload";
 
 export default function Projects() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const queryClient = useQueryClient();
 
   // Realtime subscription for projects
@@ -54,10 +56,16 @@ export default function Projects() {
             Manage your real estate projects
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Project
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Bulk Upload
+          </Button>
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Project
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -67,6 +75,12 @@ export default function Projects() {
       )}
 
       <ProjectDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      
+      <ProjectsBulkUpload
+        open={bulkUploadOpen}
+        onOpenChange={setBulkUploadOpen}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["projects"] })}
+      />
     </div>
   );
 }
