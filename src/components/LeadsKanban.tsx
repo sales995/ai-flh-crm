@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Phone, Mail, MapPin, DollarSign } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-type LeadStatus = "new" | "contacted" | "qualified" | "interested" | "not_interested" | "converted" | "lost";
+type LeadStatus = "new" | "contacted" | "reached" | "qualified" | "interested" | "site_visit_scheduled" | "site_visit_rescheduled" | "site_visit_completed" | "not_interested" | "converted" | "lost" | "junk";
 
 interface LeadsKanbanProps {
   leads: any[];
@@ -13,11 +13,16 @@ interface LeadsKanbanProps {
 const statuses: Array<{ value: LeadStatus; label: string; color: string }> = [
   { value: "new", label: "New", color: "bg-blue-500" },
   { value: "contacted", label: "Contacted", color: "bg-yellow-500" },
+  { value: "reached", label: "Reached", color: "bg-cyan-500" },
   { value: "qualified", label: "Qualified", color: "bg-purple-500" },
   { value: "interested", label: "Interested", color: "bg-green-500" },
+  { value: "site_visit_scheduled", label: "Site Visit Scheduled", color: "bg-indigo-500" },
+  { value: "site_visit_rescheduled", label: "Site Visit Rescheduled", color: "bg-orange-500" },
+  { value: "site_visit_completed", label: "Site Visit Completed", color: "bg-teal-500" },
   { value: "not_interested", label: "Not Interested", color: "bg-gray-500" },
   { value: "converted", label: "Converted", color: "bg-emerald-500" },
   { value: "lost", label: "Lost", color: "bg-red-500" },
+  { value: "junk", label: "Junk", color: "bg-slate-500" },
 ];
 
 export function LeadsKanban({ leads, onStatusChange }: LeadsKanbanProps) {

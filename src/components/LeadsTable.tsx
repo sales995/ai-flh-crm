@@ -15,11 +15,16 @@ export function LeadsTable({ leads }: LeadsTableProps) {
     const colors: Record<string, string> = {
       new: "bg-blue-500",
       contacted: "bg-yellow-500",
+      reached: "bg-cyan-500",
       qualified: "bg-purple-500",
       interested: "bg-green-500",
+      site_visit_scheduled: "bg-indigo-500",
+      site_visit_rescheduled: "bg-orange-500",
+      site_visit_completed: "bg-teal-500",
       not_interested: "bg-gray-500",
       converted: "bg-emerald-500",
       lost: "bg-red-500",
+      junk: "bg-slate-500",
     };
     return colors[status] || "bg-gray-500";
   };

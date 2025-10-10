@@ -220,11 +220,16 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
                 <SelectContent className="bg-popover z-50">
                   <SelectItem value="new">New</SelectItem>
                   <SelectItem value="contacted">Contacted</SelectItem>
+                  <SelectItem value="reached">Reached</SelectItem>
                   <SelectItem value="qualified">Qualified</SelectItem>
                   <SelectItem value="interested">Interested</SelectItem>
+                  <SelectItem value="site_visit_scheduled">Site Visit Scheduled</SelectItem>
+                  <SelectItem value="site_visit_rescheduled">Site Visit Rescheduled</SelectItem>
+                  <SelectItem value="site_visit_completed">Site Visit Completed</SelectItem>
                   <SelectItem value="not_interested">Not Interested</SelectItem>
                   <SelectItem value="converted">Converted</SelectItem>
                   <SelectItem value="lost">Lost</SelectItem>
+                  <SelectItem value="junk">Junk</SelectItem>
                 </SelectContent>
               </Select>
             </div>

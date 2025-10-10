@@ -17,12 +17,13 @@ const templateData = [
     location: 'Mumbai',
     budget_min: 5000000,
     budget_max: 7000000,
-    project_type: 'residential',
+    project_type: 'apartment',
     source: 'website',
     status: 'new',
     notes: 'Interested in 3BHK',
     consent: true,
     tags: 'urgent,premium',
+    campaign: 'summer_promo',
   },
 ];
 

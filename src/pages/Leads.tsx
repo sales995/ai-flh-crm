@@ -64,13 +64,13 @@ export default function Leads() {
     },
   });
 
-  type LeadStatus = "new" | "contacted" | "qualified" | "interested" | "not_interested" | "converted" | "lost";
+  type LeadStatus = "new" | "contacted" | "reached" | "qualified" | "interested" | "site_visit_scheduled" | "site_visit_rescheduled" | "site_visit_completed" | "not_interested" | "converted" | "lost" | "junk";
 
   const updateLeadStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: LeadStatus }) => {
       const { error } = await supabase
         .from("leads")
-        .update({ status })
+        .update({ status: status as any })
         .eq("id", id);
       
       if (error) throw error;
