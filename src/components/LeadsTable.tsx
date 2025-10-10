@@ -46,13 +46,13 @@ export function LeadsTable({ leads, onAssign }: LeadsTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>Created At</TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Mobile</TableHead>
             <TableHead>Source</TableHead>
             <TableHead>Lead Type</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Assigned To</TableHead>
-            <TableHead>Created At</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -73,6 +73,9 @@ export function LeadsTable({ leads, onAssign }: LeadsTableProps) {
                   key={lead.id}
                   className={isDuplicate ? "bg-yellow-50 dark:bg-yellow-950/20" : ""}
                 >
+                  <TableCell className="text-sm text-muted-foreground">
+                    🕒 {formatTimestamp(lead.created_at)}
+                  </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       {lead.name}
@@ -105,9 +108,6 @@ export function LeadsTable({ leads, onAssign }: LeadsTableProps) {
                   </TableCell>
                 <TableCell className="text-sm">
                   {lead.assigned_profile?.full_name || "Unassigned"}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  🕒 {formatTimestamp(lead.created_at)}
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
