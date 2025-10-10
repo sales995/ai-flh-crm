@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { EnhancedBulkUploadDialog } from './EnhancedBulkUploadDialog';
 import { validateLeads } from '@/lib/uploadValidators';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,15 +31,21 @@ export function LeadsBulkUpload({ open, onOpenChange, onSuccess }: LeadsBulkUplo
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [proceedToUpload, setProceedToUpload] = useState(false);
 
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen) {
+  // Sync with parent's open prop
+  useEffect(() => {
+    if (open) {
       setShowGuidelines(true);
       setProceedToUpload(false);
     } else {
       setShowGuidelines(false);
       setProceedToUpload(false);
-      onOpenChange(false);
     }
+  }, [open]);
+
+  const handleCloseAll = () => {
+    setShowGuidelines(false);
+    setProceedToUpload(false);
+    onOpenChange(false);
   };
 
   const handleProceedWithUpload = () => {
@@ -194,7 +200,7 @@ export function LeadsBulkUpload({ open, onOpenChange, onSuccess }: LeadsBulkUplo
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => handleOpenChange(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={handleCloseAll}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleProceedWithUpload}>
               Upload File
             </AlertDialogAction>
@@ -207,7 +213,7 @@ export function LeadsBulkUpload({ open, onOpenChange, onSuccess }: LeadsBulkUplo
         open={proceedToUpload}
         onOpenChange={(isOpen) => {
           if (!isOpen) {
-            handleOpenChange(false);
+            handleCloseAll();
           }
         }}
         title="Bulk Upload Leads"
