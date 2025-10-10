@@ -17,12 +17,17 @@ export type Database = {
       activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"]
+          call_date: string | null
+          call_time: string | null
+          calling_status: Database["public"]["Enums"]["calling_status"] | null
           completed_at: string | null
           created_at: string
           created_by: string
           duration: number | null
           id: string
           lead_id: string
+          next_followup_date: string | null
+          next_followup_time: string | null
           notes: string | null
           outcome: Database["public"]["Enums"]["activity_outcome"] | null
           scheduled_at: string | null
@@ -30,12 +35,17 @@ export type Database = {
         }
         Insert: {
           activity_type: Database["public"]["Enums"]["activity_type"]
+          call_date?: string | null
+          call_time?: string | null
+          calling_status?: Database["public"]["Enums"]["calling_status"] | null
           completed_at?: string | null
           created_at?: string
           created_by: string
           duration?: number | null
           id?: string
           lead_id: string
+          next_followup_date?: string | null
+          next_followup_time?: string | null
           notes?: string | null
           outcome?: Database["public"]["Enums"]["activity_outcome"] | null
           scheduled_at?: string | null
@@ -43,12 +53,17 @@ export type Database = {
         }
         Update: {
           activity_type?: Database["public"]["Enums"]["activity_type"]
+          call_date?: string | null
+          call_time?: string | null
+          calling_status?: Database["public"]["Enums"]["calling_status"] | null
           completed_at?: string | null
           created_at?: string
           created_by?: string
           duration?: number | null
           id?: string
           lead_id?: string
+          next_followup_date?: string | null
+          next_followup_time?: string | null
           notes?: string | null
           outcome?: Database["public"]["Enums"]["activity_outcome"] | null
           scheduled_at?: string | null
@@ -450,6 +465,7 @@ export type Database = {
           location: string | null
           name: string
           next_followup_date: string | null
+          next_followup_time: string | null
           notes: string | null
           phone: string
           project_type: Database["public"]["Enums"]["project_type"] | null
@@ -477,6 +493,7 @@ export type Database = {
           location?: string | null
           name: string
           next_followup_date?: string | null
+          next_followup_time?: string | null
           notes?: string | null
           phone: string
           project_type?: Database["public"]["Enums"]["project_type"] | null
@@ -504,6 +521,7 @@ export type Database = {
           location?: string | null
           name?: string
           next_followup_date?: string | null
+          next_followup_time?: string | null
           notes?: string | null
           phone?: string
           project_type?: Database["public"]["Enums"]["project_type"] | null
@@ -541,6 +559,7 @@ export type Database = {
         Row: {
           approved: boolean | null
           created_at: string
+          highly_suitable: boolean | null
           id: string
           lead_id: string
           match_reasons: string[] | null
@@ -550,6 +569,7 @@ export type Database = {
         Insert: {
           approved?: boolean | null
           created_at?: string
+          highly_suitable?: boolean | null
           id?: string
           lead_id: string
           match_reasons?: string[] | null
@@ -559,6 +579,7 @@ export type Database = {
         Update: {
           approved?: boolean | null
           created_at?: string
+          highly_suitable?: boolean | null
           id?: string
           lead_id?: string
           match_reasons?: string[] | null
@@ -578,6 +599,54 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          lead_id: string | null
+          message: string
+          recipient_id: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          lead_id?: string | null
+          message: string
+          recipient_id?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          lead_id?: string | null
+          message?: string
+          recipient_id?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1013,6 +1082,7 @@ export type Database = {
         | "sales_manager"
         | "agent"
         | "manager"
+      calling_status: "consulted" | "asked_for_reconnect" | "rnr_swo"
       lead_status:
         | "new"
         | "contacted"
@@ -1173,6 +1243,7 @@ export const Constants = {
         "agent",
         "manager",
       ],
+      calling_status: ["consulted", "asked_for_reconnect", "rnr_swo"],
       lead_status: [
         "new",
         "contacted",

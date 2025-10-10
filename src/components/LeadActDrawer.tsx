@@ -119,13 +119,34 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
     enabled: open,
   });
 
-  // Call Information State
+  // Call Information State with auto date/time
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0]; // yyyy-mm-dd
+    const timeStr = now.toTimeString().slice(0, 5); // hh:mm
+    return { dateStr, timeStr };
+  };
+
+  const { dateStr: currentDate, timeStr: currentTime } = getCurrentDateTime();
+
   const [callInfo, setCallInfo] = useState({
     calling_status: "",
-    call_date: "",
-    call_time: "",
-    attempts: lead?.attempt_count || 0,
+    call_date: currentDate,
+    call_time: currentTime,
+    next_followup_date: "",
+    next_followup_time: "",
+    notes: "",
   });
+
+  // Auto-calculate next follow-up date (+15 days)
+  useEffect(() => {
+    if (callInfo.call_date) {
+      const callDate = new Date(callInfo.call_date);
+      callDate.setDate(callDate.getDate() + 15);
+      const followupDate = callDate.toISOString().split('T')[0];
+      setCallInfo(prev => ({ ...prev, next_followup_date: followupDate }));
+    }
+  }, [callInfo.call_date]);
 
   // Parse preferred locations properly
   const parsePreferredLocations = (locations: any): LocationWithRadius[] => {
@@ -233,30 +254,73 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      const newAttemptCount = (lead?.attempt_count || 0) + 1;
+
+      // Insert call activity
       const { error: activityError } = await supabase.from("activities").insert({
         lead_id: leadId,
         activity_type: "call",
-        notes: `${callInfo.calling_status} - ${callInfo.attempts} attempts`,
-        completed_at: `${callInfo.call_date}T${callInfo.call_time}`,
+        calling_status: callInfo.calling_status as any,
+        call_date: new Date(callInfo.call_date).toISOString(),
+        call_time: callInfo.call_time,
+        next_followup_date: callInfo.next_followup_date,
+        next_followup_time: callInfo.next_followup_time || null,
+        notes: callInfo.notes,
+        completed_at: new Date().toISOString(),
         created_by: user.id,
       });
 
       if (activityError) throw activityError;
 
+      // Update lead with attempt count and follow-up
       const { error: leadError } = await supabase
         .from("leads")
         .update({
-          attempt_count: lead.attempt_count + 1,
+          attempt_count: newAttemptCount,
           last_attempt_at: new Date().toISOString(),
+          next_followup_date: callInfo.next_followup_date,
+          next_followup_time: callInfo.next_followup_time || null,
         })
         .eq("id", leadId);
 
       if (leadError) throw leadError;
+
+      // Check if 3rd attempt - create notification
+      if (newAttemptCount === 3) {
+        // Get all managers to notify
+        const { data: managers } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .in("role", ["business_manager", "sales_manager"]);
+
+        if (managers && managers.length > 0) {
+          const notifications = managers.map(manager => ({
+            type: "third_attempt",
+            title: "⚠️ 3rd Attempt Escalation",
+            message: `Lead: ${lead.name} (${lead.phone})\nStatus: 3rd Attempt Logged — Possible Cold Lead\nPlease review action plan.`,
+            lead_id: leadId,
+            recipient_id: manager.user_id,
+          }));
+
+          await supabase.from("notifications").insert(notifications);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lead-activities", leadId] });
       queryClient.invalidateQueries({ queryKey: ["lead-detail", leadId] });
-      toast.success("Call activity logged");
+      toast.success("Call activity logged successfully");
+      
+      // Reset call info for next call
+      const { dateStr, timeStr } = getCurrentDateTime();
+      setCallInfo({
+        calling_status: "",
+        call_date: dateStr,
+        call_time: timeStr,
+        next_followup_date: "",
+        next_followup_time: "",
+        notes: "",
+      });
     },
   });
 
@@ -353,15 +417,25 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
       queryClient.invalidateQueries({ queryKey: ["lead-details", leadId] });
       queryClient.invalidateQueries({ queryKey: ["external-actions", leadId] });
       queryClient.invalidateQueries({ queryKey: ["lead-activities", leadId] });
-      toast.success("Assessment and property actions saved successfully");
+      toast.success("Assessment saved successfully");
       setSelectedActions({});
-      setActiveTab("matches");
+      
+      // Auto-trigger matching
       try {
         setGenerating(true);
-        await supabase.functions.invoke("generate-matchings");
+        toast.info("Generating AI property matches...");
+        const { error } = await supabase.functions.invoke("match-lead-supply", {
+          body: { lead_id: leadId }
+        });
+        
+        if (error) throw error;
+        
         queryClient.invalidateQueries({ queryKey: ["ai-matches", leadId] });
+        toast.success("AI matches generated successfully");
+        setActiveTab("matches");
       } catch (e) {
-        console.error(e);
+        console.error("Error generating matches:", e);
+        toast.error("Failed to generate matches");
       } finally {
         setGenerating(false);
       }
@@ -437,7 +511,7 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
           <TabsContent value="call" className="space-y-4">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Calling Status</Label>
+                <Label>Calling Status *</Label>
                 <Select
                   value={callInfo.calling_status}
                   onValueChange={(value) =>
@@ -450,41 +524,83 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                   <SelectContent>
                     <SelectItem value="consulted">Consulted</SelectItem>
                     <SelectItem value="asked_for_reconnect">Asked for Reconnect</SelectItem>
-                    <SelectItem value="rnr_swo">RNR-SWO</SelectItem>
+                    <SelectItem value="rnr_swo">RNR/SWO</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Call Date</Label>
+                  <Label>Call Date (Auto)</Label>
                   <Input
                     type="date"
                     value={callInfo.call_date}
                     onChange={(e) => setCallInfo({ ...callInfo, call_date: e.target.value })}
+                    className="bg-muted"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Call Time</Label>
+                  <Label>Call Time (Auto)</Label>
                   <Input
                     type="time"
                     value={callInfo.call_time}
                     onChange={(e) => setCallInfo({ ...callInfo, call_time: e.target.value })}
+                    className="bg-muted"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label>Number of Attempts</Label>
-                <Input type="number" value={lead.attempt_count || 0} disabled />
+                <Input type="number" value={lead?.attempt_count || 0} disabled className="bg-muted" />
+                {(lead?.attempt_count || 0) >= 2 && (
+                  <p className="text-sm text-destructive">
+                    ⚠️ Warning: Next attempt will move lead to Junk status
+                  </p>
+                )}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h4 className="font-medium">Follow-Up Schedule</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Next Follow-Up Date (Auto +15 days)</Label>
+                    <Input
+                      type="date"
+                      value={callInfo.next_followup_date}
+                      onChange={(e) => setCallInfo({ ...callInfo, next_followup_date: e.target.value })}
+                      className="bg-muted"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Next Follow-Up Time (Optional)</Label>
+                    <Input
+                      type="time"
+                      value={callInfo.next_followup_time}
+                      onChange={(e) => setCallInfo({ ...callInfo, next_followup_time: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Notes (Optional)</Label>
+                <Textarea
+                  value={callInfo.notes}
+                  onChange={(e) => setCallInfo({ ...callInfo, notes: e.target.value })}
+                  placeholder="Call summary or feedback..."
+                  rows={3}
+                />
               </div>
 
               <Button
                 onClick={() => logCallActivity.mutate()}
-                disabled={logCallActivity.isPending}
+                disabled={logCallActivity.isPending || !callInfo.calling_status}
                 className="w-full"
               >
-                Log Call Activity
+                {logCallActivity.isPending ? "Logging..." : "Log Call"}
               </Button>
             </div>
           </TabsContent>
@@ -893,53 +1009,37 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
           {/* AI Property Matches Tab */}
           <TabsContent value="matches" className="space-y-4">
             <div className="space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-semibold">🤖 AI Property Matches (Live Suggestion)</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Auto-matched projects based on location, budget, and preferences
-                  </p>
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      setGenerating(true);
-                      await supabase.functions.invoke("generate-matchings");
-                      queryClient.invalidateQueries({ queryKey: ["ai-matches", leadId] });
-                      toast.success("AI matches generated");
-                    } catch (e: any) {
-                      toast.error(e.message || "Failed to generate matches");
-                    } finally {
-                      setGenerating(false);
-                    }
-                  }}
-                  disabled={generating}
-                >
-                  {generating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Generate
-                    </>
-                  )}
-                </Button>
+              <div>
+                <h3 className="text-lg font-semibold">🤖 AI Property Matches</h3>
+                <p className="text-sm text-muted-foreground">
+                  Auto-matched projects based on location, budget, and preferences
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Matches refresh automatically when assessment is saved
+                </p>
               </div>
 
-              {aiMatches && aiMatches.length > 0 ? (
+              {generating && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  <span>Generating AI matches...</span>
+                </div>
+              )}
+
+              {!generating && aiMatches && aiMatches.length > 0 ? (
                 <div className="space-y-3">
-                  {aiMatches.map((match: any) => (
+                  {aiMatches.map((match: any, index: number) => (
                     <div key={match.id} className="p-4 border rounded-lg space-y-3">
                       <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-semibold">{match.project?.name}</h4>
                             <Badge variant="secondary">{match.score}% Match</Badge>
+                            {match.highly_suitable && (
+                              <Badge variant="default" className="bg-green-600">
+                                ⭐ Highly Suitable
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-sm text-muted-foreground">
                             {match.project?.builder?.name} • {match.project?.location}
@@ -1018,41 +1118,14 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground border rounded-lg">
-                  <p className="font-medium">No AI matches available yet</p>
-                  <p className="text-sm mt-1">Complete buyer intent and financial details to generate matches</p>
-                  <div className="mt-4">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          setGenerating(true);
-                          await supabase.functions.invoke("generate-matchings");
-                          queryClient.invalidateQueries({ queryKey: ["ai-matches", leadId] });
-                          toast.success("AI matches generated");
-                        } catch (e: any) {
-                          toast.error(e.message || "Failed to generate matches");
-                        } finally {
-                          setGenerating(false);
-                        }
-                      }}
-                      disabled={generating}
-                    >
-                      {generating ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-4 w-4 mr-2" />
-                          Generate Matches
-                        </>
-                      )}
-                    </Button>
+                !generating && (
+                  <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                    <p className="font-medium">No AI matches available yet</p>
+                    <p className="text-sm mt-1">
+                      Save buyer assessment to automatically generate AI-powered property matches
+                    </p>
                   </div>
-                </div>
+                )
               )}
 
               {externalActions && externalActions.length > 0 && (

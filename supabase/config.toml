@@ -11,3 +11,12 @@ verify_jwt = false
 
 [functions.create-first-admin]
 verify_jwt = false
+
+[functions.match-lead-supply]
+verify_jwt = false
+
+[functions.generate-matchings]
+verify_jwt = false
+
+[functions.daily-follow-up-alerts]
+verify_jwt = false
