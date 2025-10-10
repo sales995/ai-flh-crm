@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Building2, Activity, Sparkles, TrendingUp, CheckCircle2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { DuplicateLeadsWidget } from "@/components/DuplicateLeadsWidget";
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
@@ -271,6 +272,9 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Duplicate Leads Widget */}
+      <DuplicateLeadsWidget />
 
       {/* Charts */}
       <div className="grid gap-4 md:grid-cols-2">

@@ -125,7 +125,7 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
         phone: normalizedPhone,
         email: data.email || null,
         source: data.source,
-        status: "new",
+        status: isDuplicate ? 'recheck_required' : 'new',
         lead_type: isDuplicate ? 'duplicate' : 'fresh',
         created_by: user.id,
         consent: true,
@@ -139,7 +139,14 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["leads-by-source"] });
       queryClient.invalidateQueries({ queryKey: ["leads-by-status"] });
-      toast.success("Lead created successfully");
+      queryClient.invalidateQueries({ queryKey: ["duplicate-stats"] });
+      
+      if (leadType === 'duplicate') {
+        toast.success("⚠️ Lead created and marked as Duplicate for review");
+      } else {
+        toast.success("Lead created successfully");
+      }
+      
       onOpenChange(false);
       resetForm();
     },

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Eye, Activity, UserCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { LeadActDrawer } from "./LeadActDrawer";
+import { formatTimestamp } from "@/lib/utils";
 
 interface LeadsTableProps {
   leads: any[];
@@ -35,6 +36,7 @@ export function LeadsTable({ leads, onAssign }: LeadsTableProps) {
       converted: "bg-emerald-500",
       lost: "bg-red-500",
       junk: "bg-slate-500",
+      recheck_required: "bg-amber-500",
     };
     return colors[status] || "bg-gray-500";
   };
@@ -47,16 +49,17 @@ export function LeadsTable({ leads, onAssign }: LeadsTableProps) {
             <TableHead>Name</TableHead>
             <TableHead>Mobile</TableHead>
             <TableHead>Source</TableHead>
+            <TableHead>Lead Type</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Assigned To</TableHead>
-            <TableHead>Last Contacted</TableHead>
+            <TableHead>Created At</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {leads.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                 No leads found. Create your first lead to get started!
               </TableCell>
             </TableRow>
@@ -90,6 +93,17 @@ export function LeadsTable({ leads, onAssign }: LeadsTableProps) {
                     {lead.source || "-"}
                   </TableCell>
                   <TableCell>
+                    {lead.lead_type === 'duplicate' ? (
+                      <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20">
+                        ⚠️ Duplicate
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="border-green-500 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/20">
+                        🟢 Fresh
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <Badge className={getStatusColor(lead.status)}>
                       {lead.status.replace(/_/g, " ")}
                     </Badge>
@@ -98,9 +112,7 @@ export function LeadsTable({ leads, onAssign }: LeadsTableProps) {
                   {lead.assigned_profile?.full_name || "Unassigned"}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  {lead.last_contacted_at
-                    ? new Date(lead.last_contacted_at).toLocaleDateString()
-                    : "-"}
+                  🕒 {formatTimestamp(lead.created_at)}
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">

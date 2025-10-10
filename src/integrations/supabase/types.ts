@@ -925,6 +925,7 @@ export type Database = {
         | "converted"
         | "lost"
         | "junk"
+        | "recheck_required"
       lead_type: "fresh" | "duplicate"
       project_type: "apartment" | "villa" | "townhouse" | "commercial" | "land"
       user_status: "active" | "inactive"
@@ -1084,6 +1085,7 @@ export const Constants = {
         "converted",
         "lost",
         "junk",
+        "recheck_required",
       ],
       lead_type: ["fresh", "duplicate"],
       project_type: ["apartment", "villa", "townhouse", "commercial", "land"],
