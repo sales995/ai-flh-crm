@@ -74,7 +74,7 @@ export function LeadsTable({ leads, onAssign }: LeadsTableProps) {
                   className={isDuplicate ? "bg-yellow-50 dark:bg-yellow-950/20" : ""}
                 >
                   <TableCell className="text-sm text-muted-foreground">
-                    🕒 {formatTimestamp(lead.created_at)}
+                    {formatTimestamp(lead.created_at)}
                   </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
