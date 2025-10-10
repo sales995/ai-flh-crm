@@ -1,15 +1,25 @@
+import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, Edit } from "lucide-react";
+import { Eye, Activity, UserCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { LeadActDrawer } from "./LeadActDrawer";
 
 interface LeadsTableProps {
   leads: any[];
+  onAssign?: (leadId: string) => void;
 }
 
-export function LeadsTable({ leads }: LeadsTableProps) {
+export function LeadsTable({ leads, onAssign }: LeadsTableProps) {
   const navigate = useNavigate();
+  const [actDrawerOpen, setActDrawerOpen] = useState(false);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+
+  const handleActClick = (leadId: string) => {
+    setSelectedLeadId(leadId);
+    setActDrawerOpen(true);
+  };
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -35,11 +45,11 @@ export function LeadsTable({ leads }: LeadsTableProps) {
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Contact</TableHead>
+            <TableHead>Mobile</TableHead>
+            <TableHead>Source</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Location</TableHead>
-            <TableHead>Budget</TableHead>
-            <TableHead>Type</TableHead>
+            <TableHead>Assigned To</TableHead>
+            <TableHead>Last Contacted</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -54,33 +64,51 @@ export function LeadsTable({ leads }: LeadsTableProps) {
             leads.map((lead) => (
               <TableRow key={lead.id}>
                 <TableCell className="font-medium">{lead.name}</TableCell>
-                <TableCell>
-                  <div className="text-sm">
-                    <div>{lead.email}</div>
-                    <div className="text-muted-foreground">{lead.phone}</div>
-                  </div>
+                <TableCell>{lead.phone}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {lead.source || "-"}
                 </TableCell>
                 <TableCell>
                   <Badge className={getStatusColor(lead.status)}>
-                    {lead.status.replace("_", " ")}
+                    {lead.status.replace(/_/g, " ")}
                   </Badge>
                 </TableCell>
-                <TableCell>{lead.location || "-"}</TableCell>
-                <TableCell>
-                  {lead.budget_min || lead.budget_max
-                    ? `$${lead.budget_min || 0} - $${lead.budget_max || 0}`
+                <TableCell className="text-sm">
+                  {lead.assigned_profile?.full_name || "Unassigned"}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {lead.last_contacted_at
+                    ? new Date(lead.last_contacted_at).toLocaleDateString()
                     : "-"}
                 </TableCell>
-                <TableCell className="capitalize">{lead.project_type || "-"}</TableCell>
                 <TableCell>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1">
                     <Button
                       variant="ghost"
-                      size="icon"
+                      size="sm"
+                      onClick={() => handleActClick(lead.id)}
+                      title="Activity & Details"
+                    >
+                      <Activity className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => navigate(`/leads/${lead.id}`)}
+                      title="View Details"
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
+                    {onAssign && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onAssign(lead.id)}
+                        title="Assign Lead"
+                      >
+                        <UserCheck className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -88,6 +116,14 @@ export function LeadsTable({ leads }: LeadsTableProps) {
           )}
         </TableBody>
       </Table>
+
+      {selectedLeadId && (
+        <LeadActDrawer
+          open={actDrawerOpen}
+          onOpenChange={setActDrawerOpen}
+          leadId={selectedLeadId}
+        />
+      )}
     </div>
   );
 }
