@@ -7,19 +7,26 @@ export interface ValidationResult {
 }
 
 const leadSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(100),
-  phone: z.string().min(1, 'Phone is required').max(20),
-  email: z.string().email('Invalid email').optional().or(z.literal('')),
-  location: z.string().optional(),
-  budget_min: z.coerce.number().positive().optional().or(z.literal('')),
-  budget_max: z.coerce.number().positive().optional().or(z.literal('')),
-  project_type: z.enum(['residential', 'commercial', 'land']).optional().or(z.literal('')),
-  source: z.string().optional(),
-  status: z.enum(['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost']).optional().or(z.literal('')),
-  notes: z.string().optional(),
-  consent: z.coerce.boolean().optional(),
-  tags: z.string().optional(),
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+  phone: z.string().trim().min(10, 'Phone must be at least 10 digits').max(20),
+  email: z.string().trim().email('Invalid email').optional().or(z.literal('')),
+  source: z.enum(['manual', 'website', 'meta', 'google', 'referral', 'other'], {
+    errorMap: () => ({ message: 'Source must be one of: manual, website, meta, google, referral, other' }),
+  }),
 });
+
+// Normalize phone number to E.164 format
+const normalizePhone = (phone: string): string => {
+  const digits = phone.replace(/\D/g, '');
+  
+  if (digits.length === 10) {
+    return `+91${digits}`;
+  } else if (digits.length === 12 && digits.startsWith('91')) {
+    return `+${digits}`;
+  }
+  
+  return digits.startsWith('+') ? digits : `+${digits}`;
+};
 
 const projectSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
@@ -59,15 +66,12 @@ const cleanEmptyValues = (obj: any) => {
 export const validateLeads = (data: any[]): ValidationResult => {
   const errors: Array<{ row: number; field: string; message: string }> = [];
   const validData: any[] = [];
+  const seenPhones = new Set<string>();
+  const seenEmails = new Set<string>();
 
   data.forEach((row, index) => {
     const rowNumber = index + 2; // +2 because index starts at 0 and row 1 is header
     const cleanedRow = cleanEmptyValues(row);
-    
-    // Parse tags if present
-    if (cleanedRow.tags && typeof cleanedRow.tags === 'string') {
-      cleanedRow.tags = cleanedRow.tags.split(',').map((t: string) => t.trim());
-    }
 
     const result = leadSchema.safeParse(cleanedRow);
     if (!result.success) {
@@ -79,10 +83,40 @@ export const validateLeads = (data: any[]): ValidationResult => {
         });
       });
     } else {
+      // Normalize phone
+      const normalizedPhone = normalizePhone(result.data.phone);
+      
+      // Check for duplicate phone within file
+      if (seenPhones.has(normalizedPhone)) {
+        errors.push({
+          row: rowNumber,
+          field: 'phone',
+          message: 'Duplicate phone number in upload file',
+        });
+        return;
+      }
+      seenPhones.add(normalizedPhone);
+
+      // Check for duplicate email within file (if provided)
+      if (result.data.email) {
+        if (seenEmails.has(result.data.email)) {
+          errors.push({
+            row: rowNumber,
+            field: 'email',
+            message: 'Duplicate email in upload file',
+          });
+          return;
+        }
+        seenEmails.add(result.data.email);
+      }
+
       validData.push({
-        ...result.data,
-        status: result.data.status || 'new',
-        consent: result.data.consent ?? false,
+        name: result.data.name,
+        phone: normalizedPhone,
+        email: result.data.email || null,
+        source: result.data.source,
+        status: 'new',
+        consent: true,
       });
     }
   });
