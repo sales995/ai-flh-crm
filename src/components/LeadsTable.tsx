@@ -81,11 +81,6 @@ export function LeadsTable({ leads, onAssign }: LeadsTableProps) {
                           🕒 New Today
                         </Badge>
                       )}
-                      {isDuplicate && (
-                        <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-700 dark:text-yellow-400">
-                          Duplicate
-                        </Badge>
-                      )}
                     </div>
                   </TableCell>
                   <TableCell>{lead.phone}</TableCell>
