@@ -77,6 +77,10 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
   // Customer Assessment State
   const propertyReqs = (leadDetails?.property_requirements as Record<string, any>) || {};
   const [assessment, setAssessment] = useState({
+    purchase_intent: leadDetails?.purchase_intent || "",
+    buying_for: leadDetails?.buying_for || "",
+    roi_months: leadDetails?.roi_months || "",
+    specify_buying_for: leadDetails?.specify_buying_for || "",
     occupation: propertyReqs.occupation || "",
     preferred_locations: leadDetails?.preferred_locations || [],
     radius_km: propertyReqs.radius_km || "",
@@ -138,6 +142,9 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
   // Save assessment
   const saveAssessment = useMutation({
     mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
       const propertyRequirements = {
         occupation: assessment.occupation,
         radius_km: assessment.radius_km,
@@ -158,9 +165,23 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
         property_requirements: propertyRequirements,
         budget_flexibility: assessment.budget_flexibility,
         additional_notes: assessment.additional_requirements,
+        purchase_intent: assessment.purchase_intent,
+        buying_for: assessment.buying_for,
+        roi_months: assessment.roi_months ? parseInt(String(assessment.roi_months)) : null,
+        specify_buying_for: assessment.specify_buying_for,
       });
 
       if (error) throw error;
+
+      // Log activity for buyer intent capture
+      if (assessment.purchase_intent) {
+        await supabase.from("activities").insert({
+          lead_id: leadId,
+          activity_type: "note",
+          notes: "Buyer Intent Captured",
+          created_by: user.id,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lead-details", leadId] });
@@ -293,6 +314,75 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
           {/* Customer Assessment Tab */}
           <TabsContent value="assessment" className="space-y-4">
             <div className="space-y-4">
+              {/* Buyer Intent Section - Highlighted */}
+              <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 space-y-4">
+                <h3 className="text-purple-700 dark:text-purple-400 font-semibold">🟣 Buyer Intent Information</h3>
+                
+                <div className="space-y-2">
+                  <Label className="text-purple-700 dark:text-purple-400 font-semibold">
+                    Primary Purchase Objective *
+                  </Label>
+                  <Select
+                    value={assessment.purchase_intent}
+                    onValueChange={(value) => {
+                      setAssessment({ ...assessment, purchase_intent: value });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select purchase objective" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="end_use">End-Use (For Self)</SelectItem>
+                      <SelectItem value="investment">Investment Purpose</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {assessment.purchase_intent === 'investment' && (
+                  <div className="space-y-2">
+                    <Label>Expected ROI or Holding Period (Months)</Label>
+                    <Input
+                      type="number"
+                      value={assessment.roi_months}
+                      onChange={(e) => setAssessment({ ...assessment, roi_months: e.target.value })}
+                      placeholder="e.g., 24 months"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label className="text-purple-700 dark:text-purple-400 font-semibold">
+                    Buying On Behalf Of
+                  </Label>
+                  <Select
+                    value={assessment.buying_for}
+                    onValueChange={(value) => {
+                      setAssessment({ ...assessment, buying_for: value });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select who is buying" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="self">Self</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {assessment.buying_for === 'other' && (
+                  <div className="space-y-2">
+                    <Label>Specify for whom this property is being considered</Label>
+                    <Input
+                      value={assessment.specify_buying_for}
+                      onChange={(e) => setAssessment({ ...assessment, specify_buying_for: e.target.value })}
+                      placeholder="e.g., Parents, Children, Investment Partner"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Rest of Assessment Fields */}
               <div className="space-y-2">
                 <Label>Occupation</Label>
                 <Input

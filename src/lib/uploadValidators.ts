@@ -75,6 +75,9 @@ const leadDetailsSchema = z.object({
   budget_min_detail: z.coerce.number().positive().optional().or(z.literal('')),
   budget_max_detail: z.coerce.number().positive().optional().or(z.literal('')),
   additional_requirements: z.string().optional(),
+  purchase_intent: z.string().optional(),
+  buying_for: z.string().optional(),
+  roi_months: z.coerce.number().positive().optional().or(z.literal('')),
 });
 
 export const validateLeads = (data: any[]): ValidationResult => {

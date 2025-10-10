@@ -266,6 +266,7 @@ export type Database = {
         Row: {
           additional_notes: string | null
           budget_flexibility: string | null
+          buying_for: string | null
           created_at: string | null
           current_location: string | null
           decision_maker: string | null
@@ -275,12 +276,16 @@ export type Database = {
           lead_id: string | null
           preferred_locations: string[] | null
           property_requirements: Json | null
+          purchase_intent: string | null
+          roi_months: number | null
+          specify_buying_for: string | null
           timeline: string | null
           updated_at: string | null
         }
         Insert: {
           additional_notes?: string | null
           budget_flexibility?: string | null
+          buying_for?: string | null
           created_at?: string | null
           current_location?: string | null
           decision_maker?: string | null
@@ -290,12 +295,16 @@ export type Database = {
           lead_id?: string | null
           preferred_locations?: string[] | null
           property_requirements?: Json | null
+          purchase_intent?: string | null
+          roi_months?: number | null
+          specify_buying_for?: string | null
           timeline?: string | null
           updated_at?: string | null
         }
         Update: {
           additional_notes?: string | null
           budget_flexibility?: string | null
+          buying_for?: string | null
           created_at?: string | null
           current_location?: string | null
           decision_maker?: string | null
@@ -305,6 +314,9 @@ export type Database = {
           lead_id?: string | null
           preferred_locations?: string[] | null
           property_requirements?: Json | null
+          purchase_intent?: string | null
+          roi_months?: number | null
+          specify_buying_for?: string | null
           timeline?: string | null
           updated_at?: string | null
         }

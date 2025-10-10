@@ -61,18 +61,39 @@ export function LeadsTable({ leads, onAssign }: LeadsTableProps) {
               </TableCell>
             </TableRow>
           ) : (
-            leads.map((lead) => (
-              <TableRow key={lead.id}>
-                <TableCell className="font-medium">{lead.name}</TableCell>
-                <TableCell>{lead.phone}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {lead.source || "-"}
-                </TableCell>
-                <TableCell>
-                  <Badge className={getStatusColor(lead.status)}>
-                    {lead.status.replace(/_/g, " ")}
-                  </Badge>
-                </TableCell>
+            leads.map((lead) => {
+              const isToday = new Date(lead.created_at).toDateString() === new Date().toDateString();
+              const isDuplicate = lead.lead_type === 'duplicate';
+              
+              return (
+                <TableRow 
+                  key={lead.id}
+                  className={isDuplicate ? "bg-yellow-50 dark:bg-yellow-950/20" : ""}
+                >
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      {lead.name}
+                      {isToday && (
+                        <Badge variant="secondary" className="text-xs">
+                          🕒 New Today
+                        </Badge>
+                      )}
+                      {isDuplicate && (
+                        <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-700 dark:text-yellow-400">
+                          Duplicate
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>{lead.phone}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {lead.source || "-"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(lead.status)}>
+                      {lead.status.replace(/_/g, " ")}
+                    </Badge>
+                  </TableCell>
                 <TableCell className="text-sm">
                   {lead.assigned_profile?.full_name || "Unassigned"}
                 </TableCell>
@@ -112,7 +133,8 @@ export function LeadsTable({ leads, onAssign }: LeadsTableProps) {
                   </div>
                 </TableCell>
               </TableRow>
-            ))
+              );
+            })
           )}
         </TableBody>
       </Table>

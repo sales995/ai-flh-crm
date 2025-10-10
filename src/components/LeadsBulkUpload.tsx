@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { EnhancedBulkUploadDialog } from './EnhancedBulkUploadDialog';
 import { validateLeads } from '@/lib/uploadValidators';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface LeadsBulkUploadProps {
   open: boolean;
@@ -26,6 +28,24 @@ const templateData = [
 
 export function LeadsBulkUpload({ open, onOpenChange, onSuccess }: LeadsBulkUploadProps) {
   const { toast } = useToast();
+  const [showGuidelines, setShowGuidelines] = useState(false);
+  const [proceedToUpload, setProceedToUpload] = useState(false);
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isOpen) {
+      setShowGuidelines(true);
+      setProceedToUpload(false);
+    } else {
+      setShowGuidelines(false);
+      setProceedToUpload(false);
+      onOpenChange(false);
+    }
+  };
+
+  const handleProceedWithUpload = () => {
+    setShowGuidelines(false);
+    setProceedToUpload(true);
+  };
 
   const handleUpload = async (data: any[]) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -141,28 +161,78 @@ export function LeadsBulkUpload({ open, onOpenChange, onSuccess }: LeadsBulkUplo
   };
 
   return (
-    <EnhancedBulkUploadDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Bulk Upload Leads"
-      description="Upload multiple leads with core fields and optional assessment details. Unknown columns will be rejected."
-      templateData={templateData}
-      templateFilename="leads_template.csv"
-      onUpload={handleUpload}
-      validateData={validateLeads}
-      requiredColumns={['name', 'phone', 'email', 'source']}
-      optionalColumns={[
-        'preferred_location',
-        'radius',
-        'property_type',
-        'bhk',
-        'size_min',
-        'size_max',
-        'facing',
-        'budget_min_detail',
-        'budget_max_detail',
-        'additional_requirements',
-      ]}
-    />
+    <>
+      {/* Pre-Upload Guidelines Alert */}
+      <AlertDialog open={showGuidelines} onOpenChange={setShowGuidelines}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>⚠️ Bulk Upload Guidelines</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <div className="border-l-4 border-green-500 pl-4 py-2">
+                  <p className="font-semibold text-green-700 dark:text-green-400">✅ Accepted Columns:</p>
+                  <p className="text-sm mt-1">
+                    <strong>Required:</strong> Name, Mobile, Email, Source
+                  </p>
+                  <p className="text-sm mt-1">
+                    <strong>Optional:</strong> Preferred Location, Radius, Property Type, BHK, Size, Facing, 
+                    Budget Min, Budget Max, Additional Requirements, Purchase Intent, Buying For, ROI Months
+                  </p>
+                </div>
+                <div className="border-l-4 border-red-500 pl-4 py-2">
+                  <p className="font-semibold text-red-700 dark:text-red-400">🟥 Important Notes:</p>
+                  <ul className="text-sm mt-1 list-disc list-inside space-y-1">
+                    <li>Any unknown columns will cause upload rejection</li>
+                    <li>Duplicates will be automatically tagged but still imported</li>
+                    <li>All imported leads will have Status = New</li>
+                  </ul>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  💡 <strong>Tip:</strong> Please double-check your file format and spelling before uploading.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => handleOpenChange(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleProceedWithUpload}>
+              Upload File
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Main Upload Dialog */}
+      <EnhancedBulkUploadDialog
+        open={proceedToUpload}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            handleOpenChange(false);
+          }
+        }}
+        title="Bulk Upload Leads"
+        description="Upload multiple leads with core fields and optional assessment details. Unknown columns will be rejected."
+        templateData={templateData}
+        templateFilename="leads_template.csv"
+        onUpload={handleUpload}
+        validateData={validateLeads}
+        requiredColumns={['name', 'phone', 'email', 'source']}
+        optionalColumns={[
+          'preferred_location',
+          'radius',
+          'property_type',
+          'bhk',
+          'size_min',
+          'size_max',
+          'facing',
+          'budget_min_detail',
+          'budget_max_detail',
+          'additional_requirements',
+          'purchase_intent',
+          'buying_for',
+          'roi_months',
+        ]}
+      />
+    </>
   );
 }
