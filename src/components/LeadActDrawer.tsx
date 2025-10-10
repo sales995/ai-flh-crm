@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Phone, User, Clock, Activity, Building2, Plus, X } from "lucide-react";
+import { Phone, User, Plus, X } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 interface LeadActDrawerProps {
@@ -26,6 +28,7 @@ interface LocationWithRadius {
 export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps) {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("call");
+  const [selectedActions, setSelectedActions] = useState<Record<string, string>>({});
 
   // Fetch lead data
   const { data: lead } = useQuery({
@@ -57,17 +60,30 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
     enabled: open,
   });
 
-  // Fetch activities
-  const { data: activities } = useQuery({
-    queryKey: ["lead-activities", leadId],
+  // Fetch AI-matched projects
+  const { data: aiMatches } = useQuery({
+    queryKey: ["ai-matches", leadId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("activities")
-        .select("*, profiles:created_by(full_name)")
+        .from("matchings")
+        .select(`
+          *,
+          project:projects(
+            id,
+            name,
+            location,
+            price_min,
+            price_max,
+            project_type,
+            builder:builders(name)
+          )
+        `)
         .eq("lead_id", leadId)
-        .order("created_at", { ascending: false });
+        .order("score", { ascending: false })
+        .limit(10);
+      
       if (error) throw error;
-      return data;
+      return data || [];
     },
     enabled: open,
   });
@@ -87,6 +103,21 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
     enabled: open,
   });
 
+  // Fetch activities
+  const { data: activities } = useQuery({
+    queryKey: ["lead-activities", leadId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("activities")
+        .select("*, profiles:created_by(full_name)")
+        .eq("lead_id", leadId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
   // Call Information State
   const [callInfo, setCallInfo] = useState({
     calling_status: "",
@@ -99,7 +130,6 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
   const parsePreferredLocations = (locations: any): LocationWithRadius[] => {
     if (!locations) return [{ location: "", radius_km: 0 }];
     if (Array.isArray(locations)) {
-      // Handle jsonb array
       return locations.map(loc => {
         if (typeof loc === 'object' && loc.location) {
           return { location: loc.location, radius_km: loc.radius_km || 0 };
@@ -112,37 +142,26 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
 
   // Customer Assessment State
   const [assessment, setAssessment] = useState({
-    // Buyer Intent
     primary_purchase_objective: leadDetails?.primary_purchase_objective || "",
     buying_for: leadDetails?.buying_for || "",
     specify_buying_for: leadDetails?.specify_buying_for || "",
     occupation: leadDetails?.occupation || "",
-    
-    // Location Preferences (up to 3)
     locations: parsePreferredLocations(leadDetails?.preferred_locations),
-    
-    // Property Preferences
     property_type: leadDetails?.property_type || "",
     size_sqft: leadDetails?.size_sqft || "",
     bhk: leadDetails?.bhk || "",
     facing: leadDetails?.facing || "",
     floor_preference: leadDetails?.floor_preference || "",
     food_preference: leadDetails?.food_preference || "",
-    
-    // Financial Assessment
     budget_min: leadDetails?.budget_min || "",
     budget_max: leadDetails?.budget_max || "",
     budget_flexibility: leadDetails?.budget_flexibility || "",
     expected_rental_yield: leadDetails?.expected_rental_yield || "",
     expected_appreciation_percent: leadDetails?.expected_appreciation_percent || "",
     investment_horizon_months: leadDetails?.investment_horizon_months || "",
-    
-    // Decision Criteria
     priority: leadDetails?.priority || "",
     minimum_requirement: leadDetails?.minimum_requirement || "",
     additional_requirements: leadDetails?.additional_requirements || "",
-    
-    // Internal Assessment
     pressure_point: leadDetails?.pressure_point || "",
   });
 
@@ -174,14 +193,6 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
       });
     }
   }, [leadDetails]);
-
-  // External Action State
-  const [externalAction, setExternalAction] = useState({
-    builder_name: "",
-    project_name: "",
-    action_taken: "",
-    notes: "",
-  });
 
   // Status & Follow-up State
   const [statusInfo, setStatusInfo] = useState({
@@ -248,7 +259,7 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
     },
   });
 
-  // Save assessment
+  // Save assessment with property actions
   const saveAssessment = useMutation({
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -292,14 +303,12 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
 
       let error;
       if (existing) {
-        // Update existing record
         const result = await supabase
           .from("lead_details")
           .update(payload as any)
           .eq("lead_id", leadId);
         error = result.error;
       } else {
-        // Insert new record
         const result = await supabase
           .from("lead_details")
           .insert(payload as any);
@@ -308,43 +317,43 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
 
       if (error) throw error;
 
+      // Save external actions for selected projects
+      const actionsToSave = Object.entries(selectedActions)
+        .filter(([_, actionType]) => actionType)
+        .map(([projectId, actionType]) => {
+          const match = aiMatches?.find((m: any) => m.project_id === projectId);
+          return {
+            lead_id: leadId,
+            builder_name: match?.project?.builder?.name || "Unknown",
+            project_name: match?.project?.name || "Unknown",
+            action_taken: actionType,
+            action_date: new Date().toISOString(),
+            notes: `Auto-logged from ACT Panel during call`,
+            created_by: user.id,
+          };
+        });
+
+      if (actionsToSave.length > 0) {
+        const { error: actionsError } = await supabase
+          .from("external_actions")
+          .insert(actionsToSave);
+        if (actionsError) throw actionsError;
+      }
+
       // Log activity for assessment
       await supabase.from("activities").insert({
         lead_id: leadId,
         activity_type: "note",
-        notes: "Buyer Assessment Updated",
+        notes: "Buyer Assessment & Property Actions Updated",
         created_by: user.id,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lead-details", leadId] });
-      queryClient.invalidateQueries({ queryKey: ["lead-activities", leadId] });
-      toast.success("Assessment saved successfully");
-    },
-  });
-
-  // Log external action
-  const logExternalAction = useMutation({
-    mutationFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const { error } = await supabase.from("external_actions").insert({
-        lead_id: leadId,
-        builder_name: externalAction.builder_name,
-        project_name: externalAction.project_name,
-        action_taken: externalAction.action_taken,
-        notes: externalAction.notes,
-        created_by: user.id,
-      });
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["external-actions", leadId] });
       queryClient.invalidateQueries({ queryKey: ["lead-activities", leadId] });
-      toast.success("External action logged");
-      setExternalAction({ builder_name: "", project_name: "", action_taken: "", notes: "" });
+      toast.success("Assessment and property actions saved successfully");
+      setSelectedActions({});
     },
   });
 
@@ -390,7 +399,7 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-3xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Lead Activity & Details</SheetTitle>
+          <SheetTitle>Lead ACT Panel</SheetTitle>
           <div className="space-y-1 text-sm">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4" />
@@ -407,8 +416,8 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="call">Call</TabsTrigger>
-            <TabsTrigger value="assessment">Assessment</TabsTrigger>
-            <TabsTrigger value="external">External</TabsTrigger>
+            <TabsTrigger value="intent">Intent</TabsTrigger>
+            <TabsTrigger value="matches">AI Matches</TabsTrigger>
             <TabsTrigger value="status">Status</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
           </TabsList>
@@ -469,8 +478,8 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
             </div>
           </TabsContent>
 
-          {/* Customer Assessment Tab */}
-          <TabsContent value="assessment" className="space-y-6">
+          {/* Buyer Intent & Assessment Tab */}
+          <TabsContent value="intent" className="space-y-6">
             <div className="space-y-6">
               {/* Buyer Intent Section */}
               <div className="space-y-4">
@@ -493,6 +502,48 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Investment Snapshot - Conditional */}
+                {assessment.primary_purchase_objective === "investment" && (
+                  <div className="p-4 border rounded-lg bg-muted/50 space-y-4">
+                    <h4 className="font-semibold text-sm">💡 Investment Snapshot – Quick Intent Capture</h4>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="space-y-2">
+                        <Label>Expected Monthly ROI (₹)</Label>
+                        <Input
+                          type="number"
+                          value={assessment.expected_rental_yield}
+                          onChange={(e) =>
+                            setAssessment({ ...assessment, expected_rental_yield: e.target.value })
+                          }
+                          placeholder="e.g., 35,000"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Expected Appreciation (%)</Label>
+                        <Input
+                          type="number"
+                          value={assessment.expected_appreciation_percent}
+                          onChange={(e) =>
+                            setAssessment({ ...assessment, expected_appreciation_percent: e.target.value })
+                          }
+                          placeholder="e.g., 10"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Planned Holding Period (Months)</Label>
+                        <Input
+                          type="number"
+                          value={assessment.investment_horizon_months}
+                          onChange={(e) =>
+                            setAssessment({ ...assessment, investment_horizon_months: e.target.value })
+                          }
+                          placeholder="e.g., 36"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>Buying On Behalf Of</Label>
@@ -710,7 +761,7 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
 
               {/* Financial Assessment */}
               <div className="space-y-4">
-                <h3 className="font-semibold text-lg">🟠 Financial Assessment</h3>
+                <h3 className="font-semibold text-lg">💰 Financial Assessment</h3>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -741,51 +792,9 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                     onChange={(e) =>
                       setAssessment({ ...assessment, budget_flexibility: e.target.value })
                     }
-                    placeholder="e.g., Can stretch 10% if location is prime"
+                    placeholder="e.g., Can stretch 10% for prime projects"
                   />
                 </div>
-
-                {assessment.primary_purchase_objective === "investment" && (
-                  <>
-                    <div className="space-y-2">
-                      <Label>Expected ROI (Rental Yield per Month) ₹</Label>
-                      <Input
-                        type="number"
-                        value={assessment.expected_rental_yield}
-                        onChange={(e) =>
-                          setAssessment({ ...assessment, expected_rental_yield: e.target.value })
-                        }
-                        placeholder="35000"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Expected Appreciation (%)</Label>
-                        <Input
-                          type="number"
-                          value={assessment.expected_appreciation_percent}
-                          onChange={(e) =>
-                            setAssessment({ ...assessment, expected_appreciation_percent: e.target.value })
-                          }
-                          placeholder="12"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Investment Horizon (Months)</Label>
-                        <Input
-                          type="number"
-                          value={assessment.investment_horizon_months}
-                          onChange={(e) =>
-                            setAssessment({ ...assessment, investment_horizon_months: e.target.value })
-                          }
-                          placeholder="36"
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
               </div>
 
               <Separator />
@@ -853,7 +862,7 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                     onChange={(e) =>
                       setAssessment({ ...assessment, pressure_point: e.target.value })
                     }
-                    placeholder="e.g., Family expansion / rental saving / job transfer / ROI target"
+                    placeholder="e.g., Rental saving / relocation / investment portfolio expansion"
                     rows={3}
                   />
                 </div>
@@ -865,121 +874,138 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                 className="w-full"
                 size="lg"
               >
-                💾 Save Assessment
+                💾 Save & Close Lead Call
               </Button>
             </div>
           </TabsContent>
 
-          {/* External Portal Updates Tab */}
-          <TabsContent value="external" className="space-y-4">
+          {/* AI Property Matches Tab */}
+          <TabsContent value="matches" className="space-y-4">
             <div className="space-y-4">
               <div>
-                <h3 className="font-semibold text-lg mb-2">🧱 Property Suggestion Tracking</h3>
+                <h3 className="text-lg font-semibold">🤖 AI Property Matches (Live Suggestion)</h3>
                 <p className="text-sm text-muted-foreground">
-                  Log actions taken in external builder portals
+                  Auto-matched projects based on location, budget, and preferences
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <Label>Builder Name *</Label>
-                <Input
-                  value={externalAction.builder_name}
-                  onChange={(e) =>
-                    setExternalAction({ ...externalAction, builder_name: e.target.value })
-                  }
-                  placeholder="e.g., Shriram Properties"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Project Name *</Label>
-                <Input
-                  value={externalAction.project_name}
-                  onChange={(e) =>
-                    setExternalAction({ ...externalAction, project_name: e.target.value })
-                  }
-                  placeholder="e.g., Park 63"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Action Taken *</Label>
-                <Select
-                  value={externalAction.action_taken}
-                  onValueChange={(value) =>
-                    setExternalAction({ ...externalAction, action_taken: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select action" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="shared_details">Shared Details</SelectItem>
-                    <SelectItem value="updated_in_portal">Updated in Portal</SelectItem>
-                    <SelectItem value="follow_up_logged">Follow-Up Logged</SelectItem>
-                    <SelectItem value="site_visit_requested">Site Visit Requested</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Notes</Label>
-                <Textarea
-                  value={externalAction.notes}
-                  onChange={(e) =>
-                    setExternalAction({ ...externalAction, notes: e.target.value })
-                  }
-                  placeholder="Updated customer's details in builder portal"
-                  rows={3}
-                />
-              </div>
-
-              <Button
-                onClick={() => logExternalAction.mutate()}
-                disabled={
-                  logExternalAction.isPending ||
-                  !externalAction.builder_name ||
-                  !externalAction.project_name ||
-                  !externalAction.action_taken
-                }
-                className="w-full"
-              >
-                <Building2 className="h-4 w-4 mr-2" />
-                Log External Action
-              </Button>
-
-              <Separator className="my-4" />
-
-              {/* External Actions History */}
-              <div>
-                <h4 className="font-semibold mb-3">External Actions History</h4>
+              {aiMatches && aiMatches.length > 0 ? (
                 <div className="space-y-3">
-                  {externalActions && externalActions.length > 0 ? (
-                    externalActions.map((action) => (
-                      <div key={action.id} className="border rounded-lg p-3 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">{action.builder_name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(action.action_date).toLocaleString()}
-                          </span>
+                  {aiMatches.map((match: any) => (
+                    <div key={match.id} className="p-4 border rounded-lg space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold">{match.project?.name}</h4>
+                            <Badge variant="secondary">{match.score}% Match</Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {match.project?.builder?.name} • {match.project?.location}
+                          </p>
+                          <p className="text-sm">
+                            {match.project?.project_type} • ₹{match.project?.price_min?.toLocaleString()} - ₹{match.project?.price_max?.toLocaleString()}
+                          </p>
+                          {match.match_reasons && match.match_reasons.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {match.match_reasons.map((reason: string, idx: number) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {reason}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        <div className="text-sm text-muted-foreground">{action.project_name}</div>
-                        <div className="text-sm">
-                          <span className="font-medium">Action: </span>
-                          {action.action_taken.replace(/_/g, " ")}
+                      </div>
+
+                      <Separator />
+
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">✅ Real-Time Lead Action (During Call)</Label>
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`action-site-${match.project_id}`}
+                              checked={selectedActions[match.project_id] === "Lead Registered + Pushed for Site Visit"}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedActions({
+                                    ...selectedActions,
+                                    [match.project_id]: "Lead Registered + Pushed for Site Visit"
+                                  });
+                                } else {
+                                  const newActions = { ...selectedActions };
+                                  delete newActions[match.project_id];
+                                  setSelectedActions(newActions);
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor={`action-site-${match.project_id}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              Lead Registered + Pushed for Site Visit
+                            </label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`action-reg-${match.project_id}`}
+                              checked={selectedActions[match.project_id] === "Lead Registered Only"}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedActions({
+                                    ...selectedActions,
+                                    [match.project_id]: "Lead Registered Only"
+                                  });
+                                } else {
+                                  const newActions = { ...selectedActions };
+                                  delete newActions[match.project_id];
+                                  setSelectedActions(newActions);
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor={`action-reg-${match.project_id}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              Lead Registered Only
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                  <p className="font-medium">No AI matches available yet</p>
+                  <p className="text-sm mt-1">Complete buyer intent and financial details to generate matches</p>
+                </div>
+              )}
+
+              {externalActions && externalActions.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  <h4 className="font-semibold text-sm">📦 Previous Property Actions</h4>
+                  <div className="space-y-2">
+                    {externalActions.map((action: any) => (
+                      <div key={action.id} className="p-3 border rounded-lg bg-muted/30">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-medium text-sm">{action.project_name}</p>
+                            <p className="text-xs text-muted-foreground">{action.builder_name}</p>
+                            <Badge variant="outline" className="mt-1 text-xs">{action.action_taken}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(action.action_date).toLocaleDateString()}
+                          </p>
                         </div>
                         {action.notes && (
-                          <div className="text-sm text-muted-foreground">{action.notes}</div>
+                          <p className="text-xs text-muted-foreground mt-2">{action.notes}</p>
                         )}
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center text-muted-foreground py-4">
-                      No external actions logged yet
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </TabsContent>
 
@@ -990,8 +1016,8 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                 <Label>Lead Status</Label>
                 <Select
                   value={statusInfo.status}
-                  onValueChange={(value) =>
-                    setStatusInfo({ ...statusInfo, status: value as typeof statusInfo.status })
+                  onValueChange={(value: any) =>
+                    setStatusInfo({ ...statusInfo, status: value })
                   }
                 >
                   <SelectTrigger>
@@ -1004,9 +1030,6 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                     <SelectItem value="qualified">Qualified</SelectItem>
                     <SelectItem value="interested">Interested</SelectItem>
                     <SelectItem value="site_visit_scheduled">Site Visit Scheduled</SelectItem>
-                    <SelectItem value="site_visit_rescheduled">
-                      Site Visit Rescheduled
-                    </SelectItem>
                     <SelectItem value="site_visit_completed">Site Visit Completed</SelectItem>
                     <SelectItem value="not_interested">Not Interested</SelectItem>
                     <SelectItem value="converted">Converted</SelectItem>
@@ -1017,7 +1040,7 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
               </div>
 
               <div className="space-y-2">
-                <Label>Next Follow-Up Date</Label>
+                <Label>Next Follow-up Date</Label>
                 <Input
                   type="date"
                   value={statusInfo.next_followup_date}
@@ -1028,11 +1051,11 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
               </div>
 
               <div className="space-y-2">
-                <Label>Notes</Label>
+                <Label>Notes (Optional)</Label>
                 <Textarea
                   value={statusInfo.notes}
                   onChange={(e) => setStatusInfo({ ...statusInfo, notes: e.target.value })}
-                  placeholder="Add notes about this status change"
+                  placeholder="Add any additional notes..."
                   rows={4}
                 />
               </div>
@@ -1050,30 +1073,32 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
           {/* Timeline Tab */}
           <TabsContent value="timeline" className="space-y-4">
             <div className="space-y-4">
+              <h3 className="font-semibold text-lg">Activity Timeline</h3>
               {activities && activities.length > 0 ? (
-                activities.map((activity) => (
-                  <div key={activity.id} className="border-l-2 border-primary pl-4 pb-4">
-                    <div className="flex items-start gap-3">
-                      <Activity className="h-4 w-4 mt-1 text-primary" />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium capitalize">{activity.activity_type}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(activity.created_at).toLocaleString()}
-                          </span>
+                <div className="space-y-3">
+                  {activities.map((activity: any) => (
+                    <div key={activity.id} className="p-3 border rounded-lg">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <Badge variant="outline" className="mb-1">
+                            {activity.activity_type}
+                          </Badge>
+                          <p className="text-sm">{activity.notes}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            By {activity.profiles?.full_name || "Unknown"}
+                          </p>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">{activity.notes}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          By: {activity.profiles?.full_name || "System"}
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(activity.created_at).toLocaleString()}
                         </p>
                       </div>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center text-muted-foreground py-8">
-                  No activities logged yet
+                  ))}
                 </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No activities yet
+                </p>
               )}
             </div>
           </TabsContent>
