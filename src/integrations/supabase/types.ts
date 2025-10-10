@@ -341,6 +341,7 @@ export type Database = {
           project_type: Database["public"]["Enums"]["project_type"] | null
           source: string | null
           source_id: string | null
+          status: Database["public"]["Enums"]["lead_status"]
           tags: string[] | null
           updated_at: string
         }
@@ -366,6 +367,7 @@ export type Database = {
           project_type?: Database["public"]["Enums"]["project_type"] | null
           source?: string | null
           source_id?: string | null
+          status?: Database["public"]["Enums"]["lead_status"]
           tags?: string[] | null
           updated_at?: string
         }
@@ -391,6 +393,7 @@ export type Database = {
           project_type?: Database["public"]["Enums"]["project_type"] | null
           source?: string | null
           source_id?: string | null
+          status?: Database["public"]["Enums"]["lead_status"]
           tags?: string[] | null
           updated_at?: string
         }
