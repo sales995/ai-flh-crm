@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Phone, User, Plus, X } from "lucide-react";
+import { Phone, User, Plus, X, Sparkles, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 interface LeadActDrawerProps {
@@ -29,6 +29,7 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("call");
   const [selectedActions, setSelectedActions] = useState<Record<string, string>>({});
+  const [generating, setGenerating] = useState(false);
 
   // Fetch lead data
   const { data: lead } = useQuery({
@@ -348,14 +349,22 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
         created_by: user.id,
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["lead-details", leadId] });
       queryClient.invalidateQueries({ queryKey: ["external-actions", leadId] });
       queryClient.invalidateQueries({ queryKey: ["lead-activities", leadId] });
-      queryClient.invalidateQueries({ queryKey: ["ai-matches", leadId] });
       toast.success("Assessment and property actions saved successfully");
       setSelectedActions({});
-      setActiveTab("ai-matches");
+      setActiveTab("matches");
+      try {
+        setGenerating(true);
+        await supabase.functions.invoke("generate-matchings");
+        queryClient.invalidateQueries({ queryKey: ["ai-matches", leadId] });
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setGenerating(false);
+      }
     },
   });
 
@@ -884,11 +893,42 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
           {/* AI Property Matches Tab */}
           <TabsContent value="matches" className="space-y-4">
             <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold">🤖 AI Property Matches (Live Suggestion)</h3>
-                <p className="text-sm text-muted-foreground">
-                  Auto-matched projects based on location, budget, and preferences
-                </p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold">🤖 AI Property Matches (Live Suggestion)</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Auto-matched projects based on location, budget, and preferences
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      setGenerating(true);
+                      await supabase.functions.invoke("generate-matchings");
+                      queryClient.invalidateQueries({ queryKey: ["ai-matches", leadId] });
+                      toast.success("AI matches generated");
+                    } catch (e: any) {
+                      toast.error(e.message || "Failed to generate matches");
+                    } finally {
+                      setGenerating(false);
+                    }
+                  }}
+                  disabled={generating}
+                >
+                  {generating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Generate
+                    </>
+                  )}
+                </Button>
               </div>
 
               {aiMatches && aiMatches.length > 0 ? (
@@ -981,6 +1021,37 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                 <div className="text-center py-8 text-muted-foreground border rounded-lg">
                   <p className="font-medium">No AI matches available yet</p>
                   <p className="text-sm mt-1">Complete buyer intent and financial details to generate matches</p>
+                  <div className="mt-4">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          setGenerating(true);
+                          await supabase.functions.invoke("generate-matchings");
+                          queryClient.invalidateQueries({ queryKey: ["ai-matches", leadId] });
+                          toast.success("AI matches generated");
+                        } catch (e: any) {
+                          toast.error(e.message || "Failed to generate matches");
+                        } finally {
+                          setGenerating(false);
+                        }
+                      }}
+                      disabled={generating}
+                    >
+                      {generating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          Generate Matches
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               )}
 
