@@ -63,6 +63,20 @@ const cleanEmptyValues = (obj: any) => {
   return cleaned;
 };
 
+// Optional lead details schema
+const leadDetailsSchema = z.object({
+  preferred_location: z.string().optional(),
+  radius: z.coerce.number().positive().optional().or(z.literal('')),
+  property_type: z.string().optional(),
+  bhk: z.string().optional(),
+  size_min: z.coerce.number().positive().optional().or(z.literal('')),
+  size_max: z.coerce.number().positive().optional().or(z.literal('')),
+  facing: z.string().optional(),
+  budget_min_detail: z.coerce.number().positive().optional().or(z.literal('')),
+  budget_max_detail: z.coerce.number().positive().optional().or(z.literal('')),
+  additional_requirements: z.string().optional(),
+});
+
 export const validateLeads = (data: any[]): ValidationResult => {
   const errors: Array<{ row: number; field: string; message: string }> = [];
   const validData: any[] = [];
@@ -73,52 +87,68 @@ export const validateLeads = (data: any[]): ValidationResult => {
     const rowNumber = index + 2; // +2 because index starts at 0 and row 1 is header
     const cleanedRow = cleanEmptyValues(row);
 
-    const result = leadSchema.safeParse(cleanedRow);
-    if (!result.success) {
-      result.error.errors.forEach((error) => {
+    // Validate core lead fields
+    const coreResult = leadSchema.safeParse(cleanedRow);
+    if (!coreResult.success) {
+      coreResult.error.errors.forEach((error) => {
         errors.push({
           row: rowNumber,
           field: error.path.join('.'),
           message: error.message,
         });
       });
-    } else {
-      // Normalize phone
-      const normalizedPhone = normalizePhone(result.data.phone);
-      
-      // Check for duplicate phone within file
-      if (seenPhones.has(normalizedPhone)) {
+      return;
+    }
+
+    // Normalize phone
+    const normalizedPhone = normalizePhone(coreResult.data.phone);
+    
+    // Check for duplicate phone within file
+    if (seenPhones.has(normalizedPhone)) {
+      errors.push({
+        row: rowNumber,
+        field: 'phone',
+        message: 'Duplicate phone number in upload file',
+      });
+      return;
+    }
+    seenPhones.add(normalizedPhone);
+
+    // Check for duplicate email within file (if provided)
+    if (coreResult.data.email) {
+      if (seenEmails.has(coreResult.data.email)) {
         errors.push({
           row: rowNumber,
-          field: 'phone',
-          message: 'Duplicate phone number in upload file',
+          field: 'email',
+          message: 'Duplicate email in upload file',
         });
         return;
       }
-      seenPhones.add(normalizedPhone);
+      seenEmails.add(coreResult.data.email);
+    }
 
-      // Check for duplicate email within file (if provided)
-      if (result.data.email) {
-        if (seenEmails.has(result.data.email)) {
-          errors.push({
-            row: rowNumber,
-            field: 'email',
-            message: 'Duplicate email in upload file',
-          });
-          return;
-        }
-        seenEmails.add(result.data.email);
-      }
+    // Validate optional lead details
+    const detailsResult = leadDetailsSchema.safeParse(cleanedRow);
+    let details = {};
+    
+    if (detailsResult.success) {
+      // Only include non-empty optional fields
+      details = Object.fromEntries(
+        Object.entries(detailsResult.data).filter(([_, v]) => v !== '' && v !== undefined && v !== null)
+      );
+    }
 
-      validData.push({
-        name: result.data.name,
+    validData.push({
+      core: {
+        name: coreResult.data.name,
         phone: normalizedPhone,
-        email: result.data.email || null,
-        source: result.data.source,
+        email: coreResult.data.email || null,
+        source: coreResult.data.source,
         status: 'new',
         consent: true,
-      });
-    }
+      },
+      details,
+    });
   });
 
   return {

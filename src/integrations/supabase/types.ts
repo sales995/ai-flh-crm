@@ -333,6 +333,7 @@ export type Database = {
           junk_reason: string | null
           last_attempt_at: string | null
           last_contacted_at: string | null
+          lead_type: Database["public"]["Enums"]["lead_type"] | null
           location: string | null
           name: string
           next_followup_date: string | null
@@ -359,6 +360,7 @@ export type Database = {
           junk_reason?: string | null
           last_attempt_at?: string | null
           last_contacted_at?: string | null
+          lead_type?: Database["public"]["Enums"]["lead_type"] | null
           location?: string | null
           name: string
           next_followup_date?: string | null
@@ -385,6 +387,7 @@ export type Database = {
           junk_reason?: string | null
           last_attempt_at?: string | null
           last_contacted_at?: string | null
+          lead_type?: Database["public"]["Enums"]["lead_type"] | null
           location?: string | null
           name?: string
           next_followup_date?: string | null
@@ -910,6 +913,7 @@ export type Database = {
         | "converted"
         | "lost"
         | "junk"
+      lead_type: "fresh" | "duplicate"
       project_type: "apartment" | "villa" | "townhouse" | "commercial" | "land"
       user_status: "active" | "inactive"
     }
@@ -1069,6 +1073,7 @@ export const Constants = {
         "lost",
         "junk",
       ],
+      lead_type: ["fresh", "duplicate"],
       project_type: ["apartment", "villa", "townhouse", "commercial", "land"],
       user_status: ["active", "inactive"],
     },

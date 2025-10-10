@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -49,6 +49,65 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
     email: lead?.email || "",
     source: lead?.source || "manual",
   });
+  const [leadType, setLeadType] = useState<'fresh' | 'duplicate' | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  // Check for duplicates
+  const checkDuplicate = async (phone: string, email?: string) => {
+    if (!phone || phone.length < 10) {
+      setLeadType(null);
+      return;
+    }
+
+    setChecking(true);
+    try {
+      const normalizedPhone = normalizePhone(phone);
+
+      // Check phone duplicate
+      const { data: existingByPhone } = await supabase
+        .from('leads')
+        .select('id')
+        .eq('phone', normalizedPhone)
+        .maybeSingle();
+
+      if (existingByPhone) {
+        setLeadType('duplicate');
+        setChecking(false);
+        return;
+      }
+
+      // Check email duplicate if provided
+      if (email && email.includes('@')) {
+        const { data: existingByEmail } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+
+        if (existingByEmail) {
+          setLeadType('duplicate');
+          setChecking(false);
+          return;
+        }
+      }
+
+      setLeadType('fresh');
+    } catch (error) {
+      console.error('Error checking duplicate:', error);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  // Check for duplicates when phone or email changes
+  useEffect(() => {
+    if (!lead && formData.phone.length >= 10) {
+      const timer = setTimeout(() => {
+        checkDuplicate(formData.phone, formData.email);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [formData.phone, formData.email, lead]);
 
   const createLead = useMutation({
     mutationFn: async (data: any) => {
@@ -58,29 +117,8 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
       // Normalize phone
       const normalizedPhone = normalizePhone(data.phone);
 
-      // Check for duplicate phone
-      const { data: existingPhone } = await supabase
-        .from("leads")
-        .select("id")
-        .eq("phone", normalizedPhone)
-        .maybeSingle();
-
-      if (existingPhone) {
-        throw new Error("A lead with this phone number already exists");
-      }
-
-      // Check for duplicate email if provided
-      if (data.email) {
-        const { data: existingEmail } = await supabase
-          .from("leads")
-          .select("id")
-          .eq("email", data.email)
-          .maybeSingle();
-
-        if (existingEmail) {
-          throw new Error("A lead with this email already exists");
-        }
-      }
+      // Determine if duplicate
+      const isDuplicate = leadType === 'duplicate';
 
       const { error } = await supabase.from("leads").insert({
         name: data.name,
@@ -88,6 +126,7 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
         email: data.email || null,
         source: data.source,
         status: "new",
+        lead_type: isDuplicate ? 'duplicate' : 'fresh',
         created_by: user.id,
         consent: true,
       });
@@ -137,6 +176,7 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
       email: "",
       source: "manual",
     });
+    setLeadType(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -223,6 +263,25 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
               </SelectContent>
             </Select>
           </div>
+
+          {/* Lead Type Display */}
+          {!lead && leadType && (
+            <div className="space-y-2">
+              <Label>Lead Type (Auto-detected)</Label>
+              <div className={`p-3 rounded-md text-sm font-medium ${
+                leadType === 'duplicate' 
+                  ? 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20' 
+                  : 'bg-green-500/10 text-green-600 border border-green-500/20'
+              }`}>
+                {leadType === 'duplicate' ? '⚠️ Duplicate Lead' : '✓ Fresh Lead'}
+              </div>
+              {leadType === 'duplicate' && (
+                <p className="text-xs text-muted-foreground">
+                  This lead will be marked as duplicate but will still be created.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
