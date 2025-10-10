@@ -71,6 +71,55 @@ export type Database = {
           },
         ]
       }
+      assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          assigned_to: string | null
+          id: string
+          lead_id: string | null
+          reason: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_to?: string | null
+          id?: string
+          lead_id?: string | null
+          reason?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_to?: string | null
+          id?: string
+          lead_id?: string | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -146,9 +195,133 @@ export type Database = {
         }
         Relationships: []
       }
+      follow_ups: {
+        Row: {
+          assigned_to: string | null
+          attempt_number: number | null
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          lead_id: string | null
+          next_followup_at: string | null
+          notes: string | null
+          outcome: string | null
+          scheduled_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          attempt_number?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          lead_id?: string | null
+          next_followup_at?: string | null
+          notes?: string | null
+          outcome?: string | null
+          scheduled_at: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          attempt_number?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          lead_id?: string | null
+          next_followup_at?: string | null
+          notes?: string | null
+          outcome?: string | null
+          scheduled_at?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follow_ups_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_ups_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_ups_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_details: {
+        Row: {
+          additional_notes: string | null
+          budget_flexibility: string | null
+          created_at: string | null
+          current_location: string | null
+          decision_maker: string | null
+          family_size: number | null
+          financing_status: string | null
+          id: string
+          lead_id: string | null
+          preferred_locations: string[] | null
+          property_requirements: Json | null
+          timeline: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          additional_notes?: string | null
+          budget_flexibility?: string | null
+          created_at?: string | null
+          current_location?: string | null
+          decision_maker?: string | null
+          family_size?: number | null
+          financing_status?: string | null
+          id?: string
+          lead_id?: string | null
+          preferred_locations?: string[] | null
+          property_requirements?: Json | null
+          timeline?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          additional_notes?: string | null
+          budget_flexibility?: string | null
+          created_at?: string | null
+          current_location?: string | null
+          decision_maker?: string | null
+          family_size?: number | null
+          financing_status?: string | null
+          id?: string
+          lead_id?: string | null
+          preferred_locations?: string[] | null
+          property_requirements?: Json | null
+          timeline?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_details_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           assigned_to: string | null
+          attempt_count: number | null
           budget_max: number | null
           budget_min: number | null
           campaign: string | null
@@ -157,6 +330,8 @@ export type Database = {
           created_by: string
           email: string | null
           id: string
+          junk_reason: string | null
+          last_attempt_at: string | null
           last_contacted_at: string | null
           location: string | null
           name: string
@@ -165,12 +340,13 @@ export type Database = {
           phone: string
           project_type: Database["public"]["Enums"]["project_type"] | null
           source: string | null
-          status: Database["public"]["Enums"]["lead_status"]
+          source_id: string | null
           tags: string[] | null
           updated_at: string
         }
         Insert: {
           assigned_to?: string | null
+          attempt_count?: number | null
           budget_max?: number | null
           budget_min?: number | null
           campaign?: string | null
@@ -179,6 +355,8 @@ export type Database = {
           created_by: string
           email?: string | null
           id?: string
+          junk_reason?: string | null
+          last_attempt_at?: string | null
           last_contacted_at?: string | null
           location?: string | null
           name: string
@@ -187,12 +365,13 @@ export type Database = {
           phone: string
           project_type?: Database["public"]["Enums"]["project_type"] | null
           source?: string | null
-          status?: Database["public"]["Enums"]["lead_status"]
+          source_id?: string | null
           tags?: string[] | null
           updated_at?: string
         }
         Update: {
           assigned_to?: string | null
+          attempt_count?: number | null
           budget_max?: number | null
           budget_min?: number | null
           campaign?: string | null
@@ -201,6 +380,8 @@ export type Database = {
           created_by?: string
           email?: string | null
           id?: string
+          junk_reason?: string | null
+          last_attempt_at?: string | null
           last_contacted_at?: string | null
           location?: string | null
           name?: string
@@ -209,7 +390,7 @@ export type Database = {
           phone?: string
           project_type?: Database["public"]["Enums"]["project_type"] | null
           source?: string | null
-          status?: Database["public"]["Enums"]["lead_status"]
+          source_id?: string | null
           tags?: string[] | null
           updated_at?: string
         }
@@ -226,6 +407,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "sources"
             referencedColumns: ["id"]
           },
         ]
@@ -503,34 +691,167 @@ export type Database = {
           },
         ]
       }
-      user_roles: {
+      role_permissions: {
         Row: {
-          created_at: string
+          created_at: string | null
+          enabled: boolean | null
           id: string
+          permission: string
           role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
+          enabled?: boolean | null
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          permission: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
+          enabled?: boolean | null
           id?: string
+          permission?: string
           role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      site_visits: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          feedback: string | null
+          id: string
+          lead_id: string | null
+          next_steps: string | null
+          outcome: string | null
+          pre_sales_id: string | null
+          project_id: string | null
+          sales_manager_id: string | null
+          scheduled_at: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          feedback?: string | null
+          id?: string
+          lead_id?: string | null
+          next_steps?: string | null
+          outcome?: string | null
+          pre_sales_id?: string | null
+          project_id?: string | null
+          sales_manager_id?: string | null
+          scheduled_at: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          feedback?: string | null
+          id?: string
+          lead_id?: string | null
+          next_steps?: string | null
+          outcome?: string | null
+          pre_sales_id?: string | null
+          project_id?: string | null
+          sales_manager_id?: string | null
+          scheduled_at?: string
+          status?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "site_visits_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visits_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visits_pre_sales_id_fkey"
+            columns: ["pre_sales_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visits_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visits_sales_manager_id_fkey"
+            columns: ["sales_manager_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
+      }
+      sources: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -565,15 +886,27 @@ export type Database = {
         | "no_answer"
         | "not_interested"
       activity_type: "call" | "email" | "meeting" | "note"
-      app_role: "agent" | "manager" | "admin"
+      app_role:
+        | "admin"
+        | "business_manager"
+        | "supply_manager"
+        | "pre_sales_manager"
+        | "sales_manager"
+        | "agent"
+        | "manager"
       lead_status:
         | "new"
         | "contacted"
+        | "reached"
         | "qualified"
         | "interested"
+        | "site_visit_scheduled"
+        | "site_visit_rescheduled"
+        | "site_visit_completed"
         | "not_interested"
         | "converted"
         | "lost"
+        | "junk"
       project_type: "apartment" | "villa" | "townhouse" | "commercial" | "land"
       user_status: "active" | "inactive"
     }
@@ -710,15 +1043,28 @@ export const Constants = {
         "not_interested",
       ],
       activity_type: ["call", "email", "meeting", "note"],
-      app_role: ["agent", "manager", "admin"],
+      app_role: [
+        "admin",
+        "business_manager",
+        "supply_manager",
+        "pre_sales_manager",
+        "sales_manager",
+        "agent",
+        "manager",
+      ],
       lead_status: [
         "new",
         "contacted",
+        "reached",
         "qualified",
         "interested",
+        "site_visit_scheduled",
+        "site_visit_rescheduled",
+        "site_visit_completed",
         "not_interested",
         "converted",
         "lost",
+        "junk",
       ],
       project_type: ["apartment", "villa", "townhouse", "commercial", "land"],
       user_status: ["active", "inactive"],
