@@ -91,7 +91,7 @@ export function LeadsBulkUpload({ open, onOpenChange, onSuccess }: LeadsBulkUplo
       return {
         core: {
           ...lead.core,
-          status: isDuplicate ? 'recheck_required' : 'new',
+          status: 'new',
           lead_type: isDuplicate ? 'duplicate' : 'fresh',
           created_by: user.id,
         },
@@ -148,7 +148,7 @@ export function LeadsBulkUpload({ open, onOpenChange, onSuccess }: LeadsBulkUplo
     }
 
     if (results.success > 0) {
-      const message = `${results.success} leads uploaded successfully${results.duplicates > 0 ? ` (${results.duplicates} marked as duplicates with Recheck Required status)` : ''}`;
+      const message = `${results.success} leads uploaded successfully${results.duplicates > 0 ? ` (${results.duplicates} marked as duplicates)` : ''}`;
       toast({
         title: 'Upload Complete',
         description: message,
@@ -203,8 +203,8 @@ export function LeadsBulkUpload({ open, onOpenChange, onSuccess }: LeadsBulkUplo
                   <p className="font-semibold text-yellow-700 dark:text-yellow-400">⚠️ Important Notes:</p>
                   <ul className="text-sm mt-1 list-disc list-inside space-y-1">
                     <li>Unknown columns will be rejected</li>
-                    <li>Duplicates will be tagged and set to "Recheck Required" status</li>
-                    <li>Fresh leads will have Status = New</li>
+                    <li>Duplicates will be tagged in Lead Type column</li>
+                    <li>All leads will have Status = New</li>
                   </ul>
                 </div>
               </div>
