@@ -16,16 +16,63 @@ const leadSchema = z.object({
 });
 
 // Normalize phone number to E.164 format
-const normalizePhone = (phone: string): string => {
-  const digits = phone.replace(/\D/g, '');
+const normalizePhone = (input: any): string | null => {
+  if (input === null || input === undefined) return null;
   
-  if (digits.length === 10) {
-    return `+91${digits}`;
-  } else if (digits.length === 12 && digits.startsWith('91')) {
-    return `+${digits}`;
+  // Convert to string (handles numeric input from CSV)
+  let s = String(input).trim();
+  
+  // Remove spaces, dots, parentheses, and hyphens
+  s = s.replace(/[\s\.\(\)\-]/g, '');
+  
+  // If it starts with '00', replace with '+'
+  if (s.startsWith('00')) {
+    s = '+' + s.slice(2);
   }
   
-  return digits.startsWith('+') ? digits : `+${digits}`;
+  // If exactly 10 digits without country code, add +91 (India)
+  if (/^[0-9]{10}$/.test(s)) {
+    s = '+91' + s;
+  }
+  
+  // If it has digits but no +, add +
+  if (/^[0-9]/.test(s) && !s.startsWith('+')) {
+    s = '+' + s;
+  }
+  
+  return s;
+};
+
+// Normalize source names with alias mapping
+const normalizeSource = (src: any): string => {
+  if (!src) return 'manual';
+  
+  const val = String(src).trim().toLowerCase();
+  
+  const map: Record<string, string> = {
+    'manual': 'manual',
+    'website': 'website',
+    'web': 'website',
+    'site': 'website',
+    'meta': 'meta',
+    'facebook': 'meta',
+    'fb': 'meta',
+    'instagram': 'meta',
+    'insta': 'meta',
+    'google': 'google',
+    'gads': 'google',
+    'adwords': 'google',
+    'google ads': 'google',
+    'referral': 'referral',
+    'referal': 'referral',
+    'recommendation': 'referral',
+    'refer': 'referral',
+    'reference': 'referral',
+    'other': 'other',
+    'others': 'other'
+  };
+  
+  return map[val] || 'other';
 };
 
 const projectSchema = z.object({
@@ -90,6 +137,23 @@ export const validateLeads = (data: any[]): ValidationResult => {
     const rowNumber = index + 2; // +2 because index starts at 0 and row 1 is header
     const cleanedRow = cleanEmptyValues(row);
 
+    // Normalize phone and source BEFORE validation
+    const normalizedPhone = normalizePhone(cleanedRow.phone);
+    const normalizedSource = normalizeSource(cleanedRow.source);
+    
+    if (!normalizedPhone) {
+      errors.push({
+        row: rowNumber,
+        field: 'phone',
+        message: 'Invalid phone number',
+      });
+      return;
+    }
+
+    // Update row with normalized values
+    cleanedRow.phone = normalizedPhone;
+    cleanedRow.source = normalizedSource;
+
     // Validate core lead fields
     const coreResult = leadSchema.safeParse(cleanedRow);
     if (!coreResult.success) {
@@ -102,12 +166,9 @@ export const validateLeads = (data: any[]): ValidationResult => {
       });
       return;
     }
-
-    // Normalize phone
-    const normalizedPhone = normalizePhone(coreResult.data.phone);
     
     // Check for duplicate phone within file
-    if (seenPhones.has(normalizedPhone)) {
+    if (seenPhones.has(coreResult.data.phone)) {
       errors.push({
         row: rowNumber,
         field: 'phone',
@@ -115,7 +176,7 @@ export const validateLeads = (data: any[]): ValidationResult => {
       });
       return;
     }
-    seenPhones.add(normalizedPhone);
+    seenPhones.add(coreResult.data.phone);
 
     // Check for duplicate email within file (if provided)
     if (coreResult.data.email) {
@@ -144,7 +205,7 @@ export const validateLeads = (data: any[]): ValidationResult => {
     validData.push({
       core: {
         name: coreResult.data.name,
-        phone: normalizedPhone,
+        phone: coreResult.data.phone,
         email: coreResult.data.email || null,
         source: coreResult.data.source,
         status: 'new',

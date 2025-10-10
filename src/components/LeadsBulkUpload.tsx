@@ -173,9 +173,11 @@ export function LeadsBulkUpload({ open, onOpenChange, onSuccess }: LeadsBulkUplo
       <AlertDialog open={showGuidelines} onOpenChange={setShowGuidelines}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>⚠️ Bulk Upload Guidelines</AlertDialogTitle>
+            <AlertDialogTitle>📋 Bulk Upload Guidelines</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4">
+                <p className="text-base font-medium">💡 Upload Tips - No manual formatting needed!</p>
+                
                 <div className="border-l-4 border-green-500 pl-4 py-2">
                   <p className="font-semibold text-green-700 dark:text-green-400">✅ Accepted Columns:</p>
                   <p className="text-sm mt-1">
@@ -186,17 +188,25 @@ export function LeadsBulkUpload({ open, onOpenChange, onSuccess }: LeadsBulkUplo
                     Budget Min, Budget Max, Additional Requirements, Purchase Intent, Buying For, ROI Months
                   </p>
                 </div>
-                <div className="border-l-4 border-red-500 pl-4 py-2">
-                  <p className="font-semibold text-red-700 dark:text-red-400">🟥 Important Notes:</p>
+                
+                <div className="border-l-4 border-blue-500 pl-4 py-2">
+                  <p className="font-semibold text-blue-700 dark:text-blue-400">🔄 Auto-Formatting:</p>
+                  <ul className="text-sm mt-1 space-y-1">
+                    <li><strong>Phone numbers:</strong> Can include country codes or plain digits. System auto-corrects to +91 format.</li>
+                    <li className="text-xs text-muted-foreground ml-4">Examples: 9840012345, +919840012345, 00971501234567</li>
+                    <li><strong>Source names:</strong> Can be in any case (Manual, META, Facebook, Google, Referral, etc.)</li>
+                    <li className="text-xs text-muted-foreground ml-4">Unknown sources are stored as "other"</li>
+                  </ul>
+                </div>
+                
+                <div className="border-l-4 border-yellow-500 pl-4 py-2">
+                  <p className="font-semibold text-yellow-700 dark:text-yellow-400">⚠️ Important Notes:</p>
                   <ul className="text-sm mt-1 list-disc list-inside space-y-1">
-                    <li>Any unknown columns will cause upload rejection</li>
-                    <li>Duplicates will be automatically tagged and set to "Recheck Required" status</li>
+                    <li>Unknown columns will be rejected</li>
+                    <li>Duplicates will be tagged and set to "Recheck Required" status</li>
                     <li>Fresh leads will have Status = New</li>
                   </ul>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  💡 <strong>Tip:</strong> Please double-check your file format and spelling before uploading.
-                </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
