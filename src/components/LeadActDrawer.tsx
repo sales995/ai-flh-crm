@@ -355,7 +355,7 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
       queryClient.invalidateQueries({ queryKey: ["ai-matches", leadId] });
       toast.success("Assessment and property actions saved successfully");
       setSelectedActions({});
-      onOpenChange(false);
+      setActiveTab("ai-matches");
     },
   });
 
