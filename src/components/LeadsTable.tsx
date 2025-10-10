@@ -77,14 +77,7 @@ export function LeadsTable({ leads, onAssign }: LeadsTableProps) {
                     {formatTimestamp(lead.created_at)}
                   </TableCell>
                   <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      {lead.name}
-                      {isToday && (
-                        <Badge variant="secondary" className="text-xs">
-                          🕒 New Today
-                        </Badge>
-                      )}
-                    </div>
+                    {lead.name}
                   </TableCell>
                   <TableCell>{lead.phone}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
@@ -93,11 +86,11 @@ export function LeadsTable({ leads, onAssign }: LeadsTableProps) {
                   <TableCell>
                     {lead.lead_type === 'duplicate' ? (
                       <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20">
-                        ⚠️ Duplicate
+                        Duplicate
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="border-green-500 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/20">
-                        🟢 Fresh
+                        Fresh
                       </Badge>
                     )}
                   </TableCell>
