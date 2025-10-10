@@ -352,8 +352,10 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
       queryClient.invalidateQueries({ queryKey: ["lead-details", leadId] });
       queryClient.invalidateQueries({ queryKey: ["external-actions", leadId] });
       queryClient.invalidateQueries({ queryKey: ["lead-activities", leadId] });
+      queryClient.invalidateQueries({ queryKey: ["ai-matches", leadId] });
       toast.success("Assessment and property actions saved successfully");
       setSelectedActions({});
+      onOpenChange(false);
     },
   });
 
