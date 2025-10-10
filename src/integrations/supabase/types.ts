@@ -195,6 +195,53 @@ export type Database = {
         }
         Relationships: []
       }
+      external_actions: {
+        Row: {
+          action_date: string
+          action_taken: string
+          builder_name: string
+          created_at: string
+          created_by: string
+          id: string
+          lead_id: string
+          notes: string | null
+          project_name: string
+          updated_at: string
+        }
+        Insert: {
+          action_date?: string
+          action_taken: string
+          builder_name: string
+          created_at?: string
+          created_by: string
+          id?: string
+          lead_id: string
+          notes?: string | null
+          project_name: string
+          updated_at?: string
+        }
+        Update: {
+          action_date?: string
+          action_taken?: string
+          builder_name?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          lead_id?: string
+          notes?: string | null
+          project_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_actions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       follow_ups: {
         Row: {
           assigned_to: string | null
@@ -265,57 +312,111 @@ export type Database = {
       lead_details: {
         Row: {
           additional_notes: string | null
+          additional_requirements: string | null
+          bhk: string | null
           budget_flexibility: string | null
+          budget_max: number | null
+          budget_min: number | null
           buying_for: string | null
           created_at: string | null
           current_location: string | null
           decision_maker: string | null
+          expected_appreciation_percent: number | null
+          expected_rental_yield: number | null
+          facing: string | null
           family_size: number | null
           financing_status: string | null
+          floor_preference: string | null
+          food_preference: string | null
           id: string
+          investment_horizon_months: number | null
+          last_assessed_at: string | null
           lead_id: string | null
-          preferred_locations: string[] | null
+          minimum_requirement: string | null
+          occupation: string | null
+          preferred_locations: Json | null
+          pressure_point: string | null
+          primary_purchase_objective: string | null
+          priority: string | null
           property_requirements: Json | null
+          property_type: string | null
           purchase_intent: string | null
           roi_months: number | null
+          size_sqft: number | null
           specify_buying_for: string | null
           timeline: string | null
           updated_at: string | null
         }
         Insert: {
           additional_notes?: string | null
+          additional_requirements?: string | null
+          bhk?: string | null
           budget_flexibility?: string | null
+          budget_max?: number | null
+          budget_min?: number | null
           buying_for?: string | null
           created_at?: string | null
           current_location?: string | null
           decision_maker?: string | null
+          expected_appreciation_percent?: number | null
+          expected_rental_yield?: number | null
+          facing?: string | null
           family_size?: number | null
           financing_status?: string | null
+          floor_preference?: string | null
+          food_preference?: string | null
           id?: string
+          investment_horizon_months?: number | null
+          last_assessed_at?: string | null
           lead_id?: string | null
-          preferred_locations?: string[] | null
+          minimum_requirement?: string | null
+          occupation?: string | null
+          preferred_locations?: Json | null
+          pressure_point?: string | null
+          primary_purchase_objective?: string | null
+          priority?: string | null
           property_requirements?: Json | null
+          property_type?: string | null
           purchase_intent?: string | null
           roi_months?: number | null
+          size_sqft?: number | null
           specify_buying_for?: string | null
           timeline?: string | null
           updated_at?: string | null
         }
         Update: {
           additional_notes?: string | null
+          additional_requirements?: string | null
+          bhk?: string | null
           budget_flexibility?: string | null
+          budget_max?: number | null
+          budget_min?: number | null
           buying_for?: string | null
           created_at?: string | null
           current_location?: string | null
           decision_maker?: string | null
+          expected_appreciation_percent?: number | null
+          expected_rental_yield?: number | null
+          facing?: string | null
           family_size?: number | null
           financing_status?: string | null
+          floor_preference?: string | null
+          food_preference?: string | null
           id?: string
+          investment_horizon_months?: number | null
+          last_assessed_at?: string | null
           lead_id?: string | null
-          preferred_locations?: string[] | null
+          minimum_requirement?: string | null
+          occupation?: string | null
+          preferred_locations?: Json | null
+          pressure_point?: string | null
+          primary_purchase_objective?: string | null
+          priority?: string | null
           property_requirements?: Json | null
+          property_type?: string | null
           purchase_intent?: string | null
           roi_months?: number | null
+          size_sqft?: number | null
           specify_buying_for?: string | null
           timeline?: string | null
           updated_at?: string | null
