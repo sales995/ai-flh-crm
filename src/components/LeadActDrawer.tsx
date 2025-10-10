@@ -75,26 +75,27 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
   });
 
   // Customer Assessment State
+  const propertyReqs = (leadDetails?.property_requirements as Record<string, any>) || {};
   const [assessment, setAssessment] = useState({
-    occupation: leadDetails?.property_requirements?.occupation || "",
+    occupation: propertyReqs.occupation || "",
     preferred_locations: leadDetails?.preferred_locations || [],
-    radius_km: leadDetails?.property_requirements?.radius_km || "",
-    property_type: leadDetails?.property_requirements?.property_type || "",
-    size_sqft: leadDetails?.property_requirements?.size_sqft || "",
-    bhk: leadDetails?.property_requirements?.bhk || "",
-    facing: leadDetails?.property_requirements?.facing || "",
-    food_preference: leadDetails?.property_requirements?.food_preference || "",
-    floor_preference: leadDetails?.property_requirements?.floor_preference || "",
-    priority: leadDetails?.property_requirements?.priority || "",
+    radius_km: propertyReqs.radius_km || "",
+    property_type: propertyReqs.property_type || "",
+    size_sqft: propertyReqs.size_sqft || "",
+    bhk: propertyReqs.bhk || "",
+    facing: propertyReqs.facing || "",
+    food_preference: propertyReqs.food_preference || "",
+    floor_preference: propertyReqs.floor_preference || "",
+    priority: propertyReqs.priority || "",
     additional_requirements: leadDetails?.additional_notes || "",
-    minimum_requirement: leadDetails?.property_requirements?.minimum_requirement || "",
+    minimum_requirement: propertyReqs.minimum_requirement || "",
     budget_flexibility: leadDetails?.budget_flexibility || "",
-    pressure_point: leadDetails?.property_requirements?.pressure_point || "",
+    pressure_point: propertyReqs.pressure_point || "",
   });
 
   // Status & Follow-up State
   const [statusInfo, setStatusInfo] = useState({
-    status: lead?.status || "new",
+    status: (lead?.status || "new") as "new" | "contacted" | "reached" | "qualified" | "interested" | "site_visit_scheduled" | "site_visit_rescheduled" | "site_visit_completed" | "not_interested" | "converted" | "lost" | "junk",
     next_followup_date: lead?.next_followup_date || "",
     notes: "",
   });
@@ -511,7 +512,7 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                 <Label>Lead Status</Label>
                 <Select
                   value={statusInfo.status}
-                  onValueChange={(value) => setStatusInfo({ ...statusInfo, status: value })}
+                  onValueChange={(value) => setStatusInfo({ ...statusInfo, status: value as typeof statusInfo.status })}
                 >
                   <SelectTrigger>
                     <SelectValue />

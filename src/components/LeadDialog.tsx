@@ -5,34 +5,34 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { z } from "zod";
 
 const leadSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters").max(100),
-  email: z.string().email("Invalid email").max(255).optional().or(z.literal("")),
-  phone: z.string().regex(/^[+\d\s()-]+$/, "Invalid phone format").min(10).max(20),
-  budget_min: z.number().min(0).optional(),
-  budget_max: z.number().min(0).optional(),
-  location: z.string().max(200).optional(),
-  notes: z.string().max(2000).optional(),
-  source: z.string().max(100).optional(),
-  campaign: z.string().max(100).optional(),
-  next_followup_date: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-  consent: z.boolean(),
-}).refine((data) => {
-  if (data.budget_min && data.budget_max) {
-    return data.budget_min <= data.budget_max;
-  }
-  return true;
-}, {
-  message: "Min budget must be less than or equal to max budget",
-  path: ["budget_max"],
+  name: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
+  phone: z.string().trim().min(10, "Phone number must be at least 10 digits").max(20),
+  email: z.string().trim().email("Invalid email").max(255).optional().or(z.literal("")),
+  source: z.enum(["manual", "website", "meta", "google", "referral", "other"], {
+    errorMap: () => ({ message: "Please select a source" }),
+  }),
 });
+
+// Normalize phone number to E.164 format
+const normalizePhone = (phone: string): string => {
+  // Remove all non-digit characters
+  const digits = phone.replace(/\D/g, '');
+  
+  // Add +91 prefix if not present (assuming India)
+  if (digits.length === 10) {
+    return `+91${digits}`;
+  } else if (digits.length === 12 && digits.startsWith('91')) {
+    return `+${digits}`;
+  }
+  
+  // Return with + prefix if not present
+  return digits.startsWith('+') ? digits : `+${digits}`;
+};
 
 interface LeadDialogProps {
   open: boolean;
@@ -45,19 +45,9 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: lead?.name || "",
-    email: lead?.email || "",
     phone: lead?.phone || "",
-    status: lead?.status || "new",
-    budget_min: lead?.budget_min || "",
-    budget_max: lead?.budget_max || "",
-    location: lead?.location || "",
-    project_type: lead?.project_type || "",
-    notes: lead?.notes || "",
-    source: lead?.source || "",
-    campaign: lead?.campaign || "",
-    next_followup_date: lead?.next_followup_date || "",
-    tags: lead?.tags?.join(", ") || "",
-    consent: lead?.consent || false,
+    email: lead?.email || "",
+    source: lead?.source || "manual",
   });
 
   const createLead = useMutation({
@@ -65,9 +55,41 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Normalize phone
+      const normalizedPhone = normalizePhone(data.phone);
+
+      // Check for duplicate phone
+      const { data: existingPhone } = await supabase
+        .from("leads")
+        .select("id")
+        .eq("phone", normalizedPhone)
+        .maybeSingle();
+
+      if (existingPhone) {
+        throw new Error("A lead with this phone number already exists");
+      }
+
+      // Check for duplicate email if provided
+      if (data.email) {
+        const { data: existingEmail } = await supabase
+          .from("leads")
+          .select("id")
+          .eq("email", data.email)
+          .maybeSingle();
+
+        if (existingEmail) {
+          throw new Error("A lead with this email already exists");
+        }
+      }
+
       const { error } = await supabase.from("leads").insert({
-        ...data,
+        name: data.name,
+        phone: normalizedPhone,
+        email: data.email || null,
+        source: data.source,
+        status: "new",
         created_by: user.id,
+        consent: true,
       });
 
       if (error) throw error;
@@ -111,19 +133,9 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
   const resetForm = () => {
     setFormData({
       name: "",
-      email: "",
       phone: "",
-      status: "new",
-      budget_min: "",
-      budget_max: "",
-      location: "",
-      project_type: "",
-      notes: "",
-      source: "",
-      campaign: "",
-      next_followup_date: "",
-      tags: "",
-      consent: false,
+      email: "",
+      source: "manual",
     });
   };
 
@@ -131,36 +143,17 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
     e.preventDefault();
 
     try {
-      // Parse tags
-      const tagsArray = formData.tags
-        ? formData.tags.split(",").map(t => t.trim()).filter(Boolean)
-        : [];
-
       const validated = leadSchema.parse({
         name: formData.name,
-        email: formData.email || undefined,
         phone: formData.phone,
-        budget_min: formData.budget_min ? parseFloat(formData.budget_min) : undefined,
-        budget_max: formData.budget_max ? parseFloat(formData.budget_max) : undefined,
-        location: formData.location || undefined,
-        notes: formData.notes || undefined,
-        source: formData.source || undefined,
-        campaign: formData.campaign || undefined,
-        next_followup_date: formData.next_followup_date || undefined,
-        tags: tagsArray.length > 0 ? tagsArray : undefined,
-        consent: formData.consent,
+        email: formData.email || undefined,
+        source: formData.source,
       });
 
-      const submitData = {
-        ...validated,
-        status: formData.status,
-        project_type: formData.project_type || null,
-      };
-
       if (lead) {
-        updateLead.mutate(submitData);
+        updateLead.mutate(validated);
       } else {
-        createLead.mutate(submitData);
+        createLead.mutate(validated);
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -171,36 +164,40 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{lead ? "Edit Lead" : "Add New Lead"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Full name"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone *</Label>
-              <Input
-                id="phone"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="+1 234 567 8900"
-                required
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="name">Full Name *</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Enter full name"
+              required
+              autoFocus
+            />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="phone">Mobile Number *</Label>
+            <Input
+              id="phone"
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="+91 98765 43210"
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              Will be normalized to international format (e.g., +91...)
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email">Email ID</Label>
             <Input
               id="email"
               type="email"
@@ -210,150 +207,24 @@ export function LeadDialog({ open, onOpenChange, projects, lead }: LeadDialogPro
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-popover z-50">
-                  <SelectItem value="new">New</SelectItem>
-                  <SelectItem value="contacted">Contacted</SelectItem>
-                  <SelectItem value="reached">Reached</SelectItem>
-                  <SelectItem value="qualified">Qualified</SelectItem>
-                  <SelectItem value="interested">Interested</SelectItem>
-                  <SelectItem value="site_visit_scheduled">Site Visit Scheduled</SelectItem>
-                  <SelectItem value="site_visit_rescheduled">Site Visit Rescheduled</SelectItem>
-                  <SelectItem value="site_visit_completed">Site Visit Completed</SelectItem>
-                  <SelectItem value="not_interested">Not Interested</SelectItem>
-                  <SelectItem value="converted">Converted</SelectItem>
-                  <SelectItem value="lost">Lost</SelectItem>
-                  <SelectItem value="junk">Junk</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="project_type">Project Type</Label>
-              <Select value={formData.project_type} onValueChange={(value) => setFormData({ ...formData, project_type: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover z-50">
-                  <SelectItem value="apartment">Apartment</SelectItem>
-                  <SelectItem value="house">House</SelectItem>
-                  <SelectItem value="condo">Condo</SelectItem>
-                  <SelectItem value="commercial">Commercial</SelectItem>
-                  <SelectItem value="land">Land</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="budget_min">Min Budget</Label>
-              <Input
-                id="budget_min"
-                type="number"
-                value={formData.budget_min}
-                onChange={(e) => setFormData({ ...formData, budget_min: e.target.value })}
-                placeholder="0"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="budget_max">Max Budget</Label>
-              <Input
-                id="budget_max"
-                type="number"
-                value={formData.budget_max}
-                onChange={(e) => setFormData({ ...formData, budget_max: e.target.value })}
-                placeholder="0"
-              />
-            </div>
-          </div>
-
           <div className="space-y-2">
-            <Label htmlFor="location">Location</Label>
-            <Input
-              id="location"
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              placeholder="City or region"
-            />
+            <Label htmlFor="source">Source *</Label>
+            <Select value={formData.source} onValueChange={(value) => setFormData({ ...formData, source: value })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="manual">Manual</SelectItem>
+                <SelectItem value="website">Website</SelectItem>
+                <SelectItem value="meta">Meta (Facebook/Instagram)</SelectItem>
+                <SelectItem value="google">Google</SelectItem>
+                <SelectItem value="referral">Referral</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="source">Source</Label>
-              <Select value={formData.source} onValueChange={(value) => setFormData({ ...formData, source: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select source" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover z-50">
-                  <SelectItem value="website">Website</SelectItem>
-                  <SelectItem value="referral">Referral</SelectItem>
-                  <SelectItem value="cold_call">Cold Call</SelectItem>
-                  <SelectItem value="social_media">Social Media</SelectItem>
-                  <SelectItem value="event">Event</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="campaign">Campaign</Label>
-              <Input
-                id="campaign"
-                value={formData.campaign}
-                onChange={(e) => setFormData({ ...formData, campaign: e.target.value })}
-                placeholder="Campaign name"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="next_followup_date">Next Follow-up Date</Label>
-            <Input
-              id="next_followup_date"
-              type="date"
-              value={formData.next_followup_date}
-              onChange={(e) => setFormData({ ...formData, next_followup_date: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="tags">Tags (comma-separated)</Label>
-            <Input
-              id="tags"
-              value={formData.tags}
-              onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-              placeholder="e.g., urgent, high-value, investor"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={3}
-              placeholder="Additional notes..."
-            />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="consent"
-              checked={formData.consent}
-              onCheckedChange={(checked) => setFormData({ ...formData, consent: checked as boolean })}
-            />
-            <Label htmlFor="consent" className="font-normal cursor-pointer">
-              Lead has given consent for communication *
-            </Label>
-          </div>
-
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
