@@ -11,8 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Phone, User, Plus, X, Sparkles, Loader2 } from "lucide-react";
+import { Phone, User, Plus, X, Sparkles, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface LeadActDrawerProps {
   open: boolean;
@@ -30,6 +31,8 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
   const [activeTab, setActiveTab] = useState("call");
   const [selectedActions, setSelectedActions] = useState<Record<string, string>>({});
   const [generating, setGenerating] = useState(false);
+  const [matchPanelOpen, setMatchPanelOpen] = useState(false);
+  const [autoMatchTrigger, setAutoMatchTrigger] = useState(0);
 
   // Fetch lead data
   const { data: lead } = useQuery({
@@ -118,6 +121,35 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
     },
     enabled: open,
   });
+
+  // Realtime subscription for matchings
+  useEffect(() => {
+    if (!open || !leadId) return;
+
+    const channel = supabase
+      .channel('matchings_changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'matchings',
+        filter: `lead_id=eq.${leadId}`
+      }, (payload) => {
+        console.log('Matchings updated:', payload);
+        queryClient.invalidateQueries({ queryKey: ["ai-matches", leadId] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [open, leadId, queryClient]);
+
+  // Auto-open panel when matches are available
+  useEffect(() => {
+    if (aiMatches && aiMatches.length > 0 && !matchPanelOpen) {
+      setMatchPanelOpen(true);
+    }
+  }, [aiMatches]);
 
   // Call Information State with auto date/time
   const getCurrentDateTime = () => {
@@ -246,7 +278,44 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
     const newLocations = [...assessment.locations];
     newLocations[index] = { ...newLocations[index], [field]: value };
     setAssessment({ ...assessment, locations: newLocations });
+    // Trigger auto-match on location change
+    if (field === 'location' && value) {
+      setAutoMatchTrigger(prev => prev + 1);
+    }
   };
+
+  // Auto-trigger AI matching when key fields change
+  useEffect(() => {
+    if (!open || !leadId || autoMatchTrigger === 0) return;
+
+    const hasValidLocation = assessment.locations.some(loc => loc.location.trim() !== '');
+    const hasPropertyType = assessment.property_type !== '';
+    const hasBudget = assessment.budget_min !== '' || assessment.budget_max !== '';
+
+    if (!hasValidLocation && !hasPropertyType && !hasBudget) return;
+
+    // Debounce the auto-match trigger
+    const timer = setTimeout(async () => {
+      try {
+        setGenerating(true);
+        toast.info("🔄 Auto-generating property matches...");
+        
+        const { error } = await supabase.functions.invoke("match-lead-supply", {
+          body: { lead_id: leadId }
+        });
+        
+        if (error) throw error;
+        
+        queryClient.invalidateQueries({ queryKey: ["ai-matches", leadId] });
+      } catch (e) {
+        console.error("Error auto-generating matches:", e);
+      } finally {
+        setGenerating(false);
+      }
+    }, 1500); // 1.5 second debounce
+
+    return () => clearTimeout(timer);
+  }, [autoMatchTrigger, open, leadId]);
 
   // Save call activity
   const logCallActivity = useMutation({
@@ -480,32 +549,41 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
 
   if (!lead) return null;
 
+  const getMatchColor = (score: number) => {
+    if (score >= 80) return 'bg-green-100 dark:bg-green-900/30 border-green-500';
+    if (score >= 60) return 'bg-amber-100 dark:bg-amber-900/30 border-amber-500';
+    return 'bg-muted border-muted-foreground';
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-3xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>Lead ACT Panel</SheetTitle>
-          <div className="space-y-1 text-sm">
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              <span className="font-medium">{lead.name}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              <span>{lead.phone}</span>
-            </div>
-            {lead.email && <div className="text-muted-foreground">{lead.email}</div>}
-          </div>
-        </SheetHeader>
+      <SheetContent className="w-full sm:max-w-[95vw] overflow-hidden p-0">
+        <div className="flex h-full">
+          {/* Main Content Area */}
+          <div className={`transition-all duration-300 overflow-y-auto ${matchPanelOpen ? 'w-[55%]' : 'w-full'}`}>
+            <div className="p-6">
+              <SheetHeader>
+                <SheetTitle>Lead ACT Panel</SheetTitle>
+                <div className="space-y-1 text-sm">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    <span className="font-medium">{lead.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    <span>{lead.phone}</span>
+                  </div>
+                  {lead.email && <div className="text-muted-foreground">{lead.email}</div>}
+                </div>
+              </SheetHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="call">Call</TabsTrigger>
-            <TabsTrigger value="intent">Intent</TabsTrigger>
-            <TabsTrigger value="matches">AI Matches</TabsTrigger>
-            <TabsTrigger value="status">Status</TabsTrigger>
-            <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          </TabsList>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="call">Call</TabsTrigger>
+                  <TabsTrigger value="intent">Intent</TabsTrigger>
+                  <TabsTrigger value="status">Status</TabsTrigger>
+                  <TabsTrigger value="timeline">Timeline</TabsTrigger>
+                </TabsList>
 
           {/* Call Information Tab */}
           <TabsContent value="call" className="space-y-4">
@@ -775,12 +853,13 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Property Type</Label>
+                     <Label>Property Type</Label>
                     <Select
                       value={assessment.property_type}
-                      onValueChange={(value) =>
-                        setAssessment({ ...assessment, property_type: value })
-                      }
+                      onValueChange={(value) => {
+                        setAssessment({ ...assessment, property_type: value });
+                        setAutoMatchTrigger(prev => prev + 1);
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select type" />
@@ -891,12 +970,15 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                 <h3 className="font-semibold text-lg">💰 Financial Assessment</h3>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                   <div className="space-y-2">
                     <Label>Minimum Budget (₹)</Label>
                     <Input
                       type="number"
                       value={assessment.budget_min}
-                      onChange={(e) => setAssessment({ ...assessment, budget_min: e.target.value })}
+                      onChange={(e) => {
+                        setAssessment({ ...assessment, budget_min: e.target.value });
+                        setAutoMatchTrigger(prev => prev + 1);
+                      }}
                       placeholder="8000000"
                     />
                   </div>
@@ -906,7 +988,10 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                     <Input
                       type="number"
                       value={assessment.budget_max}
-                      onChange={(e) => setAssessment({ ...assessment, budget_max: e.target.value })}
+                      onChange={(e) => {
+                        setAssessment({ ...assessment, budget_max: e.target.value });
+                        setAutoMatchTrigger(prev => prev + 1);
+                      }}
                       placeholder="10000000"
                     />
                   </div>
@@ -995,167 +1080,18 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                 </div>
               </div>
 
-              <Button
-                onClick={() => saveAssessment.mutate()}
-                disabled={saveAssessment.isPending}
-                className="w-full"
-                size="lg"
-              >
-                💾 Save & Close Lead Call
-              </Button>
-            </div>
-          </TabsContent>
-
-          {/* AI Property Matches Tab */}
-          <TabsContent value="matches" className="space-y-4">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold">🤖 AI Property Matches</h3>
-                <p className="text-sm text-muted-foreground">
-                  Auto-matched projects based on location, budget, and preferences
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Matches refresh automatically when assessment is saved
-                </p>
+                <Button
+                  onClick={() => saveAssessment.mutate()}
+                  disabled={saveAssessment.isPending}
+                  className="w-full"
+                  size="lg"
+                >
+                  💾 Save Assessment
+                </Button>
               </div>
+            </TabsContent>
 
-              {generating && (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                  <span>Generating AI matches...</span>
-                </div>
-              )}
-
-              {!generating && aiMatches && aiMatches.length > 0 ? (
-                <div className="space-y-3">
-                  {aiMatches.map((match: any, index: number) => (
-                    <div key={match.id} className="p-4 border rounded-lg space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-semibold">{match.project?.name}</h4>
-                            <Badge variant="secondary">{match.score}% Match</Badge>
-                            {match.highly_suitable && (
-                              <Badge variant="default" className="bg-green-600">
-                                ⭐ Highly Suitable
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {match.project?.builder?.name} • {match.project?.location}
-                          </p>
-                          <p className="text-sm">
-                            {match.project?.project_type} • ₹{match.project?.price_min?.toLocaleString()} - ₹{match.project?.price_max?.toLocaleString()}
-                          </p>
-                          {match.match_reasons && match.match_reasons.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {match.match_reasons.map((reason: string, idx: number) => (
-                                <Badge key={idx} variant="outline" className="text-xs">
-                                  {reason}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <Separator />
-
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">✅ Real-Time Lead Action (During Call)</Label>
-                        <div className="space-y-2">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`action-site-${match.project_id}`}
-                              checked={selectedActions[match.project_id] === "Lead Registered + Pushed for Site Visit"}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedActions({
-                                    ...selectedActions,
-                                    [match.project_id]: "Lead Registered + Pushed for Site Visit"
-                                  });
-                                } else {
-                                  const newActions = { ...selectedActions };
-                                  delete newActions[match.project_id];
-                                  setSelectedActions(newActions);
-                                }
-                              }}
-                            />
-                            <label
-                              htmlFor={`action-site-${match.project_id}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              Lead Registered + Pushed for Site Visit
-                            </label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`action-reg-${match.project_id}`}
-                              checked={selectedActions[match.project_id] === "Lead Registered Only"}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedActions({
-                                    ...selectedActions,
-                                    [match.project_id]: "Lead Registered Only"
-                                  });
-                                } else {
-                                  const newActions = { ...selectedActions };
-                                  delete newActions[match.project_id];
-                                  setSelectedActions(newActions);
-                                }
-                              }}
-                            />
-                            <label
-                              htmlFor={`action-reg-${match.project_id}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              Lead Registered Only
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                !generating && (
-                  <div className="text-center py-8 text-muted-foreground border rounded-lg">
-                    <p className="font-medium">No AI matches available yet</p>
-                    <p className="text-sm mt-1">
-                      Save buyer assessment to automatically generate AI-powered property matches
-                    </p>
-                  </div>
-                )
-              )}
-
-              {externalActions && externalActions.length > 0 && (
-                <div className="mt-6 space-y-3">
-                  <h4 className="font-semibold text-sm">📦 Previous Property Actions</h4>
-                  <div className="space-y-2">
-                    {externalActions.map((action: any) => (
-                      <div key={action.id} className="p-3 border rounded-lg bg-muted/30">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-medium text-sm">{action.project_name}</p>
-                            <p className="text-xs text-muted-foreground">{action.builder_name}</p>
-                            <Badge variant="outline" className="mt-1 text-xs">{action.action_taken}</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(action.action_date).toLocaleDateString()}
-                          </p>
-                        </div>
-                        {action.notes && (
-                          <p className="text-xs text-muted-foreground mt-2">{action.notes}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          {/* Status & Follow-up Tab */}
+            {/* Status & Follow-up Tab */}
           <TabsContent value="status" className="space-y-4">
             <div className="space-y-4">
               <div className="space-y-2">
@@ -1216,39 +1152,206 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
             </div>
           </TabsContent>
 
-          {/* Timeline Tab */}
-          <TabsContent value="timeline" className="space-y-4">
-            <div className="space-y-4">
-              <h3 className="font-semibold text-lg">Activity Timeline</h3>
-              {activities && activities.length > 0 ? (
-                <div className="space-y-3">
-                  {activities.map((activity: any) => (
-                    <div key={activity.id} className="p-3 border rounded-lg">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <Badge variant="outline" className="mb-1">
-                            {activity.activity_type}
-                          </Badge>
-                          <p className="text-sm">{activity.notes}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            By {activity.profiles?.full_name || "Unknown"}
+            {/* Timeline Tab */}
+            <TabsContent value="timeline" className="space-y-4">
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Activity Timeline</h3>
+                {activities && activities.length > 0 ? (
+                  <div className="space-y-3">
+                    {activities.map((activity: any) => (
+                      <div key={activity.id} className="p-3 border rounded-lg">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <Badge variant="outline" className="mb-1">
+                              {activity.activity_type}
+                            </Badge>
+                            <p className="text-sm">{activity.notes}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              By {activity.profiles?.full_name || "Unknown"}
+                            </p>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(activity.created_at).toLocaleString()}
                           </p>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(activity.created_at).toLocaleString()}
-                        </p>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  No activities yet
-                </p>
-              )}
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No activities yet
+                  </p>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+
+          {/* Collapsible AI Matches Panel */}
+          <div className={`border-l bg-muted/30 transition-all duration-300 overflow-y-auto ${matchPanelOpen ? 'w-[45%]' : 'w-12'}`}>
+            <div className="sticky top-0 z-10 bg-background border-b p-2 flex items-center justify-between">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setMatchPanelOpen(!matchPanelOpen)}
+                className="w-full justify-start"
+              >
+                {matchPanelOpen ? (
+                  <>
+                    <ChevronRight className="h-4 w-4 mr-2" />
+                    <span className="font-semibold">💡 AI Property Matches</span>
+                    {aiMatches && aiMatches.length > 0 && (
+                      <Badge variant="secondary" className="ml-2">{aiMatches.length}</Badge>
+                    )}
+                  </>
+                ) : (
+                  <ChevronLeft className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+
+            {matchPanelOpen && (
+              <div className="p-4 space-y-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Auto-matched projects based on location, budget, and preferences
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ⚡ Updates automatically as you type
+                  </p>
+                </div>
+
+                {generating && (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    <span className="text-sm">Generating matches...</span>
+                  </div>
+                )}
+
+                {!generating && aiMatches && aiMatches.length > 0 ? (
+                  <div className="space-y-3">
+                    {aiMatches.map((match: any) => (
+                      <div key={match.id} className={`p-4 border-2 rounded-lg space-y-3 ${getMatchColor(match.score)}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-1 flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-semibold text-sm truncate">{match.project?.name}</h4>
+                              <Badge variant={match.score >= 80 ? "default" : "secondary"} className="shrink-0">
+                                {match.score}%
+                              </Badge>
+                            </div>
+                            {match.highly_suitable && (
+                              <Badge variant="default" className="bg-green-600 text-white">
+                                ⭐ Highly Suitable
+                              </Badge>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              {match.project?.builder?.name} • {match.project?.location}
+                            </p>
+                            <p className="text-xs font-medium">
+                              {match.project?.project_type} • ₹{(match.project?.price_min / 10000000).toFixed(2)}Cr - ₹{(match.project?.price_max / 10000000).toFixed(2)}Cr
+                            </p>
+                          </div>
+                        </div>
+
+                        {match.match_reasons && match.match_reasons.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {match.match_reasons.map((reason: string, idx: number) => (
+                              <Badge key={idx} variant="outline" className="text-xs">
+                                {reason}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+
+                        <Separator />
+
+                        <div className="space-y-2">
+                          <Label className="text-xs font-semibold">✅ Lead Action</Label>
+                          <div className="space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`action-site-${match.project_id}`}
+                                checked={selectedActions[match.project_id] === "Lead Registered + Pushed for Site Visit"}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedActions({
+                                      ...selectedActions,
+                                      [match.project_id]: "Lead Registered + Pushed for Site Visit"
+                                    });
+                                  } else {
+                                    const newActions = { ...selectedActions };
+                                    delete newActions[match.project_id];
+                                    setSelectedActions(newActions);
+                                  }
+                                }}
+                              />
+                              <label
+                                htmlFor={`action-site-${match.project_id}`}
+                                className="text-xs leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                Lead Reg + Site Visit
+                              </label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`action-reg-${match.project_id}`}
+                                checked={selectedActions[match.project_id] === "Lead Registered Only"}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedActions({
+                                      ...selectedActions,
+                                      [match.project_id]: "Lead Registered Only"
+                                    });
+                                  } else {
+                                    const newActions = { ...selectedActions };
+                                    delete newActions[match.project_id];
+                                    setSelectedActions(newActions);
+                                  }
+                                }}
+                              />
+                              <label
+                                htmlFor={`action-reg-${match.project_id}`}
+                                className="text-xs leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                Lead Reg Only
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  !generating && (
+                    <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                      <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="font-medium text-sm">No matches yet</p>
+                      <p className="text-xs mt-1">
+                        Type location, budget, or property type to get instant AI matches
+                      </p>
+                    </div>
+                  )
+                )}
+
+                {externalActions && externalActions.length > 0 && (
+                  <div className="mt-6 space-y-3 pt-4 border-t">
+                    <h4 className="font-semibold text-xs">📦 Previous Actions</h4>
+                    <div className="space-y-2">
+                      {externalActions.slice(0, 3).map((action: any) => (
+                        <div key={action.id} className="p-2 border rounded-lg bg-background text-xs">
+                          <p className="font-medium">{action.project_name}</p>
+                          <Badge variant="outline" className="mt-1 text-xs">{action.action_taken}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </SheetContent>
     </Sheet>
   );
