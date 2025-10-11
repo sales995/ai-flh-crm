@@ -33,6 +33,8 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
   const [generating, setGenerating] = useState(false);
   const [matchPanelOpen, setMatchPanelOpen] = useState(false);
   const [autoMatchTrigger, setAutoMatchTrigger] = useState(0);
+  const [intentSectionVisible, setIntentSectionVisible] = useState(true);
+  const [intentSectionAnimating, setIntentSectionAnimating] = useState(false);
 
   // Fetch lead data
   const { data: lead } = useQuery({
@@ -148,6 +150,7 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
   useEffect(() => {
     if (aiMatches && aiMatches.length > 0 && !matchPanelOpen) {
       setMatchPanelOpen(true);
+      toast.success("💡 AI Property Matches loaded successfully");
     }
   }, [aiMatches]);
 
@@ -169,6 +172,30 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
     next_followup_time: "",
     notes: "",
   });
+
+  // Automation: Auto-switch to Intent tab based on calling_status
+  useEffect(() => {
+    if (!callInfo.calling_status) return;
+
+    const status = callInfo.calling_status.toLowerCase();
+    
+    if (status === "consulted" || status === "asked_for_reconnect") {
+      // Show Intent section with animation
+      setIntentSectionVisible(true);
+      setIntentSectionAnimating(true);
+      
+      // Auto-switch to Intent tab after brief delay
+      setTimeout(() => {
+        setActiveTab("intent");
+        toast.success("✅ Intent Section opened automatically");
+        setIntentSectionAnimating(false);
+      }, 300);
+    } else if (status === "rnr_swo" || status.includes("rnr") || status.includes("swo")) {
+      // Hide Intent section for RNR/SWO
+      setIntentSectionVisible(false);
+      toast.info("ℹ️ Call logged (RNR/SWO) - Intent section not required");
+    }
+  }, [callInfo.calling_status]);
 
   // Auto-calculate next follow-up date (+15 days)
   useEffect(() => {
@@ -300,15 +327,22 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
         setGenerating(true);
         toast.info("🔄 Auto-generating property matches...");
         
-        const { error } = await supabase.functions.invoke("match-lead-supply", {
+        const { data, error } = await supabase.functions.invoke("match-lead-supply", {
           body: { lead_id: leadId }
         });
         
         if (error) throw error;
         
-        queryClient.invalidateQueries({ queryKey: ["ai-matches", leadId] });
+        // Handle response based on automation spec
+        if (data && data.count > 0) {
+          queryClient.invalidateQueries({ queryKey: ["ai-matches", leadId] });
+          // Success toast will be shown when matches load via the useEffect above
+        } else {
+          toast.warning("⚠️ No matching properties found. Try adjusting location or budget.");
+        }
       } catch (e) {
         console.error("Error auto-generating matches:", e);
+        toast.error("Failed to generate matches. Please try again.");
       } finally {
         setGenerating(false);
       }
@@ -580,7 +614,13 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
               <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
                 <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="call">Call</TabsTrigger>
-                  <TabsTrigger value="intent">Intent</TabsTrigger>
+                  <TabsTrigger 
+                    value="intent" 
+                    disabled={!intentSectionVisible}
+                    className={intentSectionAnimating ? "animate-pulse" : ""}
+                  >
+                    Intent
+                  </TabsTrigger>
                   <TabsTrigger value="status">Status</TabsTrigger>
                   <TabsTrigger value="timeline">Timeline</TabsTrigger>
                 </TabsList>
@@ -684,7 +724,12 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
           </TabsContent>
 
           {/* Buyer Intent & Assessment Tab */}
-          <TabsContent value="intent" className="space-y-6">
+          <TabsContent value="intent" className={`space-y-6 ${intentSectionAnimating ? 'animate-fade-in' : ''}`}>
+            {!intentSectionVisible ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Intent section is only available after "Consulted" or "Asked for Reconnect" status</p>
+              </div>
+            ) : (
             <div className="space-y-6">
               {/* Buyer Intent Section */}
               <div className="space-y-4">
@@ -1089,6 +1134,7 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                   💾 Save Assessment
                 </Button>
               </div>
+            )}
             </TabsContent>
 
             {/* Status & Follow-up Tab */}
