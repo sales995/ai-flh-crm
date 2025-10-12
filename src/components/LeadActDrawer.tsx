@@ -626,7 +626,7 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
               </SheetHeader>
 
               <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="call">Call</TabsTrigger>
                   <TabsTrigger 
                     value="intent" 
@@ -635,7 +635,6 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
                   >
                     Intent
                   </TabsTrigger>
-                  <TabsTrigger value="status">Status</TabsTrigger>
                   <TabsTrigger value="timeline">Timeline</TabsTrigger>
                 </TabsList>
 
@@ -1197,44 +1196,6 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
             )}
             </TabsContent>
 
-            {/* Status & Follow-up Tab */}
-          <TabsContent value="status" className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Follow-up Schedule</h3>
-              <p className="text-sm text-muted-foreground">
-                Status management has been moved to the Intent tab. Use this section to view follow-up history.
-              </p>
-
-              <div className="space-y-2">
-                <Label>Next Follow-up Date</Label>
-                <Input
-                  type="date"
-                  value={statusInfo.next_followup_date}
-                  onChange={(e) =>
-                    setStatusInfo({ ...statusInfo, next_followup_date: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Notes (Optional)</Label>
-                <Textarea
-                  value={statusInfo.notes}
-                  onChange={(e) => setStatusInfo({ ...statusInfo, notes: e.target.value })}
-                  placeholder="Add any additional notes..."
-                  rows={4}
-                />
-              </div>
-
-              <Button
-                onClick={() => updateStatus.mutate()}
-                disabled={updateStatus.isPending}
-                className="w-full"
-              >
-                Update Status
-              </Button>
-            </div>
-          </TabsContent>
 
             {/* Timeline Tab */}
             <TabsContent value="timeline" className="space-y-4">
