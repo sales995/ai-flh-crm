@@ -36,6 +36,20 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
   const [intentSectionVisible, setIntentSectionVisible] = useState(true);
   const [intentSectionAnimating, setIntentSectionAnimating] = useState(false);
 
+  // Auto-schedule follow-ups for RNR/SWO leads
+  const handleRNRSWOScheduling = async (leadId: string) => {
+    try {
+      const { error } = await supabase.functions.invoke("schedule-rnr-followup", {
+        body: { lead_id: leadId }
+      });
+      if (error) throw error;
+      toast.success("Follow-up scheduled automatically for RNR/SWO");
+    } catch (error) {
+      console.error("Error scheduling RNR/SWO follow-up:", error);
+      toast.error("Failed to schedule follow-up");
+    }
+  };
+
   // Fetch lead data
   const { data: lead } = useQuery({
     queryKey: ["lead-detail", leadId],
@@ -731,6 +745,52 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
               </div>
             ) : (
             <div className="space-y-6">
+              {/* Lead Status Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Lead Status</h3>
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select
+                      value={lead?.status || "new"}
+                      onValueChange={async (value) => {
+                        try {
+                          const { error } = await supabase
+                            .from("leads")
+                            .update({ status: value as any })
+                            .eq("id", leadId);
+                          
+                          if (error) throw error;
+                          
+                          // Auto-schedule follow-ups for RNR/SWO
+                          if (value === "rnr_swo") {
+                            await handleRNRSWOScheduling(leadId);
+                          }
+                          
+                          queryClient.invalidateQueries({ queryKey: ["lead", leadId] });
+                          toast.success("Status updated successfully");
+                        } catch (error) {
+                          console.error("Error updating status:", error);
+                          toast.error("Failed to update status");
+                        }
+                      }}
+                    >
+                      <SelectTrigger id="status">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="qualified">Qualified</SelectItem>
+                        <SelectItem value="nurturing">Nurturing</SelectItem>
+                        <SelectItem value="rnr_swo">RNR/SWO</SelectItem>
+                        <SelectItem value="junk">Junk</SelectItem>
+                        <SelectItem value="converted">Converted</SelectItem>
+                        <SelectItem value="lost">Lost</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
               {/* Buyer Intent Section */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">🟣 Buyer Intent & Profile</h3>
@@ -1138,34 +1198,12 @@ export function LeadActDrawer({ open, onOpenChange, leadId }: LeadActDrawerProps
             </TabsContent>
 
             {/* Status & Follow-up Tab */}
-          <TabsContent value="status" className="space-y-4">
+          <TabsContent value="status" className="space-y-6">
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Lead Status</Label>
-                <Select
-                  value={statusInfo.status}
-                  onValueChange={(value: any) =>
-                    setStatusInfo({ ...statusInfo, status: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">New</SelectItem>
-                    <SelectItem value="contacted">Contacted</SelectItem>
-                    <SelectItem value="reached">Reached</SelectItem>
-                    <SelectItem value="qualified">Qualified</SelectItem>
-                    <SelectItem value="interested">Interested</SelectItem>
-                    <SelectItem value="site_visit_scheduled">Site Visit Scheduled</SelectItem>
-                    <SelectItem value="site_visit_completed">Site Visit Completed</SelectItem>
-                    <SelectItem value="not_interested">Not Interested</SelectItem>
-                    <SelectItem value="converted">Converted</SelectItem>
-                    <SelectItem value="lost">Lost</SelectItem>
-                    <SelectItem value="junk">Junk</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <h3 className="text-lg font-semibold">Follow-up Schedule</h3>
+              <p className="text-sm text-muted-foreground">
+                Status management has been moved to the Intent tab. Use this section to view follow-up history.
+              </p>
 
               <div className="space-y-2">
                 <Label>Next Follow-up Date</Label>
