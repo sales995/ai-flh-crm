@@ -6,6 +6,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Input validation schema
+const validateLeadId = (leadId: unknown): string => {
+  if (typeof leadId !== 'string') {
+    throw new Error('lead_id must be a string');
+  }
+  
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(leadId)) {
+    throw new Error('Invalid lead_id format. Must be a valid UUID');
+  }
+  
+  return leadId;
+};
+
 interface Lead {
   id: string;
   project_type?: string;
@@ -34,7 +48,8 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { lead_id } = await req.json();
+    const body = await req.json();
+    const lead_id = validateLeadId(body.lead_id);
 
     console.log('Matching lead:', lead_id);
 
@@ -103,11 +118,13 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in match-lead-supply:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    const statusCode = errorMessage.includes('Invalid') || errorMessage.includes('must be') ? 400 : 500;
+    
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { 
-        status: 500,
+        status: statusCode,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );

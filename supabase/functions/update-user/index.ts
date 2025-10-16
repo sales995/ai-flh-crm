@@ -7,6 +7,38 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Input validation helpers
+const validateEmail = (email: string | undefined): void => {
+  if (email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new Error('Invalid email format');
+    }
+  }
+};
+
+const validatePassword = (password: string | undefined): void => {
+  if (password && password.length < 6) {
+    throw new Error('Password must be at least 6 characters long');
+  }
+};
+
+const validatePhone = (phone: string | undefined): void => {
+  if (phone && phone.length > 0) {
+    const phoneRegex = /^[0-9+\-\s()]+$/;
+    if (!phoneRegex.test(phone)) {
+      throw new Error('Invalid phone number format');
+    }
+  }
+};
+
+const validateUUID = (id: string): void => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) {
+    throw new Error('Invalid user ID format');
+  }
+};
+
 interface UpdateUserRequest {
   user_id: string;
   email?: string;
@@ -62,6 +94,12 @@ const handler = async (req: Request): Promise<Response> => {
     if (!user_id) {
       throw new Error("user_id is required");
     }
+
+    // Validate inputs
+    validateUUID(user_id);
+    validateEmail(email);
+    validatePassword(password);
+    validatePhone(phone);
 
     console.log("Updating user:", { user_id, email, role, status });
 

@@ -7,6 +7,29 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Input validation helpers
+const validateEmail = (email: string): void => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new Error('Invalid email format');
+  }
+};
+
+const validatePassword = (password: string): void => {
+  if (password.length < 6) {
+    throw new Error('Password must be at least 6 characters long');
+  }
+};
+
+const validatePhone = (phone: string | undefined): void => {
+  if (phone && phone.length > 0) {
+    const phoneRegex = /^[0-9+\-\s()]+$/;
+    if (!phoneRegex.test(phone)) {
+      throw new Error('Invalid phone number format');
+    }
+  }
+};
+
 interface CreateUserRequest {
   email: string;
   password: string;
@@ -63,6 +86,11 @@ const handler = async (req: Request): Promise<Response> => {
     if (!email || !password || !full_name || !role) {
       throw new Error("Missing required fields: email, password, full_name, role");
     }
+
+    // Validate inputs
+    validateEmail(email);
+    validatePassword(password);
+    validatePhone(phone);
 
     console.log("Creating user:", { email, full_name, role });
 

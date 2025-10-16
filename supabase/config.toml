@@ -13,10 +13,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.match-lead-supply]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-matchings]
-verify_jwt = false
+verify_jwt = true
 
 [functions.daily-follow-up-alerts]
-verify_jwt = false
+verify_jwt = true
